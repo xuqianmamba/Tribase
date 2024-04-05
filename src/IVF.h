@@ -2,23 +2,25 @@
 #define IVF_H
 
 #include <memory>
+#include "common.h"
 
+namespace tribase {
 class IVF {
-private:
+   private:
     size_t list_size;
     size_t sub_k;
     std::unique_ptr<size_t[]> candidate_id;
     std::unique_ptr<float[]> candidate_codes;
     std::unique_ptr<float[]> candidate2centroid;
     std::unique_ptr<float[]> sqrt_candidate2centroid;
-    std::unique_ptr<size_t[]> sub_nearest_L2_id;
+    std::unique_ptr<idx_t[]> sub_nearest_L2_id;
     std::unique_ptr<float[]> sub_nearest_L2_dis;
-    std::unique_ptr<size_t[]> sub_nearest_IP_id;
+    std::unique_ptr<idx_t[]> sub_nearest_IP_id;
     std::unique_ptr<float[]> sub_nearest_IP_dis;
-    std::unique_ptr<size_t[]> sub_farest_IP_id;
+    std::unique_ptr<idx_t[]> sub_farest_IP_id;
     std::unique_ptr<float[]> sub_farest_IP_dis;
 
-public:
+   public:
     // Constructor
     IVF(size_t listSize, size_t subK);
 
@@ -35,5 +37,6 @@ public:
 
     // Additional methods to manipulate the data can be added here
 };
+}  // namespace tribase
 
 #endif  // IVF_H

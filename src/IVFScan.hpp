@@ -2,6 +2,7 @@
 #include "common.h"
 #include "heap.hpp"
 #include "stats.h"
+#include "utils.h"
 
 namespace tribase {
 template <MetricType metric, OptLevel opt_level>
@@ -9,12 +10,49 @@ class IVFScan {
     size_t d;
     size_t k;
     float* query;
-    IVFScan(size_t d, size_t k, float* query) : d(d), k(k), query(query) {}
-    void scan_codes(size_t scan_begin, size_t scan_end, size_t list_size, const float* codes, const idx_t* ids,
-                    const float centroid2query, const float* candicate2centroid, const float* sqrt_candicate2centroid,
-                    const size_t sub_k, const idx_t* nearest_IP_id, const float* nearest_IP_dis,
-                    const idx_t* farest_IP_id, const float* farest_IP_dis, const idx_t* nearest_L2_id,
-                    const float* nearest_L2_dis, bool* if_skip, float* simi, float* idxi, Stats& stats) {
+    IVFScan(size_t d, size_t k, float* query)
+        : d(d), k(k), query(query) {}
+
+    void lite_scan_codes(size_t list_size,
+                         const float* codes,
+                         const idx_t* ids,
+                         float* simi,
+                         float* idxi) {
+        for (size_t i = 0; i < list_size; i++) {
+            const float* candicate = codes + i * d;
+            float dis = 0;
+            if constexpr (metric == MetricType::METRIC_INNER_PRODUCT) {
+                dis = calculatedInnerProduct(query, candicate, d);
+            } else if constexpr (metric == MetricType::METRIC_L2) {
+                dis = calculatedEuclideanDistance(query, candicate, d);
+            } else {
+                static_assert(false, "Unsupported metric type");
+            }
+            if (dis < simi[0]) {
+                heap_replace_top<metric>(k, simi, idxi, dis, ids[i]);
+            }
+        }
+    }
+
+    void scan_codes(size_t scan_begin,
+                    size_t scan_end,
+                    size_t list_size,
+                    const float* codes,
+                    const idx_t* ids,
+                    const float centroid2query,
+                    const float* candicate2centroid,
+                    const float* sqrt_candicate2centroid,
+                    const size_t sub_k,
+                    const idx_t* nearest_IP_id,
+                    const float* nearest_IP_dis,
+                    const idx_t* farest_IP_id,
+                    const float* farest_IP_dis,
+                    const idx_t* nearest_L2_id,
+                    const float* nearest_L2_dis,
+                    bool* if_skip,
+                    float* simi,
+                    float* idxi,
+                    Stats* stats) {
         float max_radius;
         float diff_cos, diff_sin;
         float max_radius_plus_centroid2query;
@@ -48,9 +86,9 @@ class IVFScan {
             float dis = 0;
 
             if constexpr (metric == MetricType::METRIC_INNER_PRODUCT) {
-                // TODO:
+                dis = calculatedInnerProduct(query, candicate, d);
             } else if constexpr (metric == MetricType::METRIC_L2) {
-                // TODO:
+                dis = calculatedEuclideanDistance(query, candicate, d);
             } else {
                 static_assert(false, "Unsupported metric type");
             }
@@ -86,7 +124,7 @@ class IVFScan {
 
                     if (this_cos < diff_cos && this_cos > -diff_cos) {
 #ifdef DEBUG
-                        stats.check_subnn_IP_count += 2;
+                        stats->check_subnn_IP_count += 2;
 #endif
                         size_t skip_fake_id_begin = j * sub_k;
                         size_t skip_fake_id_end = skip_fake_id_begin + sub_k;
@@ -96,13 +134,13 @@ class IVFScan {
                             if (skip_true_id > 0 && nearest_IP_dis[skip_fake_id] > cut_degree_cos_minus) {
 #ifdef DEBUG
                                 if (!if_skip[skip_true_id] && j < skip_true_id) {
-                                    stats.skip_subnn_IP_count++;
+                                    stats->skip_subnn_IP_count++;
                                 }
 #endif
                                 if_skip[skip_true_id] = true;
                             } else {
 #ifdef DEBUG
-                                stats.check_subnn_IP_ele_count += skip_fake_id - skip_fake_id_begin;
+                                stats->check_subnn_IP_ele_count += skip_fake_id - skip_fake_id_begin;
 #endif
                                 break;
                             }
@@ -116,13 +154,13 @@ class IVFScan {
                             if (skip_true_id > 0 && farest_IP_dis[skip_fake_id] < cut_degree_cos_plus) {
 #ifdef DEBUG
                                 if (!if_skip[skip_true_id] && j < skip_true_id) {
-                                    stats.skip_subnn_IP_count++;
+                                    stats->skip_subnn_IP_count++;
                                 }
 #endif
                                 if_skip[skip_true_id] = true;
                             } else {
 #ifdef DEBUG
-                                stats.check_subnn_IP_ele_count += skip_fake_id - skip_fake_id_begin;
+                                stats->check_subnn_IP_ele_count += skip_fake_id - skip_fake_id_begin;
 #endif
                                 break;
                             }
@@ -133,7 +171,7 @@ class IVFScan {
 
             if (opt_level & OptLevel::OPT_SUBNN_L2) {
 #ifdef DEBUG
-                stats.check_subnn_L2_count += 2;
+                stats->check_subnn_L2_count += 2;
 #endif
                 size_t skip_fake_id_begin = j * sub_k;
                 size_t skip_fake_id_end = skip_fake_id_begin + sub_k;
