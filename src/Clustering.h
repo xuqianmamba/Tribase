@@ -1,7 +1,9 @@
 #ifndef CLUSTERING_H
 #define CLUSTERING_H
 
+#include <random>
 #include <vector>
+#include "utils.h"
 
 namespace tribase{
 
@@ -15,8 +17,7 @@ struct ClusteringParameters {
 class Clustering {
 public:
     Clustering(size_t d, size_t nlist, const ClusteringParameters& cp = ClusteringParameters());
-
-    void train(size_t n, const float* x, Index& index);
+    void train(size_t n, std::unique_ptr<float[]> &candicate_codes);
 
 private:
     size_t d; // dimension of the vectors
@@ -25,9 +26,9 @@ private:
 
     std::vector<float> centroids; // centroids (nlist * d)
 
-    void subsample_training_set(size_t& n, const float*& x);
-    void initialize_centroids(size_t n, const float* x);
-    void update_centroids(size_t n, const float* x, Index& index);
+    void subsample_training_set(size_t& n, std::unique_ptr<float[]> &candicate_codes);
+    void initialize_centroids(size_t n, std::unique_ptr<float[]> &candicate_codes);
+    void update_centroids(size_t n, std::unique_ptr<float[]> &candicate_codes);
     void apply_centroid_perturbations();
 };
 
