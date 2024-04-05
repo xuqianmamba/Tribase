@@ -11,16 +11,12 @@ namespace tribase {
 Clustering::Clustering(size_t d, size_t nlist, const ClusteringParameters& cp)
     : d(d), nlist(nlist), cp(cp), centroids(nlist * d, 0.0f) {}
 
-void Clustering::train(size_t n, const std::unique_ptr<float[]>& candidate_codes) {
-    // 创建一个新的unique_ptr用于存储采样后的数据
-    std::unique_ptr<float[]> sampled_codes;
-    // 调用修改后的subsample_training_set方法，传入sampled_codes以存储采样数据
+void Clustering::train(size_t n, float* candidate_codes) {
+    float* sampled_codes = nullptr;
     subsample_training_set(n, candidate_codes, sampled_codes);
 
-    // 如果采样后的数据为空（即原始数据量小于等于最大样本数），则使用原始数据进行训练
     if (!sampled_codes) {
-        sampled_codes = std::make_unique<float[]>(n * d);
-        std::copy_n(candidate_codes.get(), n * d, sampled_codes.get());
+        sampled_codes = candidate_codes;
     }
 
     initialize_centroids(n, sampled_codes);
@@ -30,37 +26,17 @@ void Clustering::train(size_t n, const std::unique_ptr<float[]>& candidate_codes
     }
 
     apply_centroid_perturbations();
+
+    // 注意：如果sampled_codes是新分配的，需要在这里释放内存
+    if (sampled_codes != candidate_codes) {
+        delete[] sampled_codes;
+    }
 }
 
-// void Clustering::subsample_training_set(size_t& n, std::unique_ptr<float[]> &candidate_codes) {
-//     size_t max_samples = nlist * cp.max_points_per_centroid;
-//     if (n <= max_samples) {
-//         // 如果数据点数量小于或等于最大样本数，不需要采样
-//         return;
-//     }
-
-//     std::vector<size_t> indices(n);
-//     std::iota(indices.begin(), indices.end(), 0); // 填充索引
-
-//     std::shuffle(indices.begin(), indices.end(), std::default_random_engine(cp.seed)); // 随机打乱索引
-
-//     std::unique_ptr<float[]> sampled_codes(new float[max_samples * d]);
-//     for (size_t i = 0; i < max_samples; ++i) {
-//         std::copy_n(candidate_codes.get() + indices[i] * d, d, sampled_codes.get() + i * d);
-//     }
-
-//     candidate_codes.swap(sampled_codes); // 使用采样后的数据替换原始数据
-//     n = max_samples; // 更新数据点数量
-// }
-
-void Clustering::subsample_training_set(size_t& n, const std::unique_ptr<float[]>& candidate_codes,
-                                        std::unique_ptr<float[]>& sampled_codes) {
+void Clustering::subsample_training_set(size_t& n, float* candidate_codes, float*& sampled_codes) {
     size_t max_samples = nlist * cp.max_points_per_centroid;
     if (n <= max_samples) {
         // 如果数据点数量小于或等于最大样本数，不需要采样
-        // 直接复制原始数据到sampled_codes
-        sampled_codes = std::make_unique<float[]>(n * d);
-        std::copy_n(candidate_codes.get(), n * d, sampled_codes.get());
         return;
     }
 
@@ -69,15 +45,15 @@ void Clustering::subsample_training_set(size_t& n, const std::unique_ptr<float[]
 
     std::shuffle(indices.begin(), indices.end(), std::default_random_engine(cp.seed));  // 随机打乱索引
 
-    sampled_codes = std::make_unique<float[]>(max_samples * d);
+    sampled_codes = new float[max_samples * d];
     for (size_t i = 0; i < max_samples; ++i) {
-        std::copy_n(candidate_codes.get() + indices[i] * d, d, sampled_codes.get() + i * d);
+        std::copy_n(candidate_codes + indices[i] * d, d, sampled_codes + i * d);
     }
 
     n = max_samples;  // 更新数据点数量
 }
 
-void Clustering::initialize_centroids(size_t n, std::unique_ptr<float[]>& candidate_codes) {
+void Clustering::initialize_centroids(size_t n, float* sampled_codes) {
     std::default_random_engine generator(cp.seed);
     std::uniform_int_distribution<size_t> distribution(0, n - 1);
 
@@ -86,13 +62,13 @@ void Clustering::initialize_centroids(size_t n, std::unique_ptr<float[]>& candid
         size_t randIndex = distribution(generator);
         // 假设每个数据点的维度为d
         for (size_t j = 0; j < d; ++j) {
-            centroids[i * d + j] = candidate_codes[randIndex * d + j];
+            centroids[i * d + j] = sampled_codes[randIndex * d + j];
         }
     }
 }
 
-void Clustering::update_centroids(size_t n, std::unique_ptr<float[]>& candidate_codes) {
-    Eigen::Map<Eigen::MatrixXf> codes(candidate_codes.get(), d, n);
+void Clustering::update_centroids(size_t n, float* sampled_codes) {
+    Eigen::Map<Eigen::MatrixXf> codes(sampled_codes, d, n);
     Eigen::Map<Eigen::MatrixXf> centers(centroids.data(), d, nlist);
 
     // 如果是基于角度的聚类，先归一化
@@ -156,9 +132,9 @@ void Clustering::apply_centroid_perturbations() {
     }
 }
 
-std::unique_ptr<float[]> Clustering::get_centroids() const {
-    std::unique_ptr<float[]> centroid_codes(new float[nlist * d]);
-    std::memcpy(centroid_codes.get(), centroids.data(), sizeof(float) * nlist * d);
+float* Clustering::get_centroids() const {
+    float* centroid_codes = new float[nlist * d];
+    std::memcpy(centroid_codes, centroids.data(), sizeof(float) * nlist * d);
     return centroid_codes;
 }
 
