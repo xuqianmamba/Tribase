@@ -58,24 +58,54 @@ void Clustering::initialize_centroids(size_t n, std::unique_ptr<float[]> &candid
 }
 
 void Clustering::update_centroids(size_t n, std::unique_ptr<float[]> &candidate_codes) {
-    std::vector<size_t> counts(nlist, 0); // 每个聚类中的点数
-    std::vector<float> new_centroids(nlist * d, 0.0f); // 新的聚类中心
+    Eigen::Map<Eigen::MatrixXf> codes(candidate_codes.get(), d, n);
+    Eigen::Map<Eigen::MatrixXf> centers(centroids.data(), d, nlist);
 
-    // 累加每个聚类中的所有点
-    #pragma omp parallel for reduction(+:new_centroids[:nlist*d], counts[:nlist])
-    for (size_t i = 0; i < n; ++i) {
-        size_t closest_centroid = /* 计算最近的聚类中心索引 */;
-        for (size_t j = 0; j < d; ++j) {
-            new_centroids[closest_centroid * d + j] += candidate_codes[i * d + j];
+    // 如果是基于角度的聚类，先归一化
+    if (cp.metric == MetricType::Angular) {
+        for (int i = 0; i < codes.cols(); ++i) {
+            if (codes.col(i).norm() > 0) {
+                codes.col(i).normalize();
+            }
         }
-        counts[closest_centroid]++;
+        for (int i = 0; i < centers.cols(); ++i) {
+            if (centers.col(i).norm() > 0) {
+                centers.col(i).normalize();
+            }
+        }
     }
 
-    // 计算新的聚类中心位置
+    std::vector<size_t> counts(nlist, 0);
+    Eigen::MatrixXf new_centroids = Eigen::MatrixXf::Zero(d, nlist);
+
+    if (cp.metric == MetricType::L2) {
+        Eigen::MatrixXf dists = (centers.transpose().replicate(1, n) - codes.replicate(1, nlist).transpose()).colwise().squaredNorm();
+        for (size_t i = 0; i < n; ++i) {
+            size_t closest_centroid = std::distance(dists.col(i).data(), std::min_element(dists.col(i).data(), dists.col(i).data() + nlist));
+            counts[closest_centroid]++;
+            new_centroids.col(closest_centroid) += codes.col(i);
+        }
+    }
+    else if (cp.metric == MetricType::Angular) {
+        Eigen::MatrixXf dots = centers.transpose() * codes;
+        for (size_t i = 0; i < n; ++i) {
+            size_t closest_centroid = std::distance(dots.col(i).data(), std::max_element(dots.col(i).data(), dots.col(i).data() + nlist));
+            counts[closest_centroid]++;
+            new_centroids.col(closest_centroid) += codes.col(i);
+        }
+    }
+
+    // 更新 centroids 和 counts
     for (size_t i = 0; i < nlist; ++i) {
-        if (counts[i] > 0) { // 避免除以0
-            for (size_t j = 0; j < d; ++j) {
-                centroids[i * d + j] = new_centroids[i * d + j] / counts[i];
+        if (counts[i] > 0) {
+            centers.col(i) = new_centroids.col(i) / counts[i];
+        }
+    }
+
+    if (cp.metric == MetricType::Angular) {
+        for (int i = 0; i < centers.cols(); ++i) {
+            if (counts[i] > 0) { // 确保不会除以零
+                centers.col(i) *= sqrt(counts[i]); // 使用平方根的计数尝试恢复原始尺度
             }
         }
     }

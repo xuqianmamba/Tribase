@@ -1,6 +1,7 @@
 #ifndef CLUSTERING_H
 #define CLUSTERING_H
 
+#include <Eigen/Dense>
 #include <random>
 #include <vector>
 #include <memory>
@@ -8,10 +9,16 @@
 
 namespace tribase {
 
+enum class MetricType {
+    L2,
+    Angular
+};
+
 struct ClusteringParameters {
-    int niter = 25; // number of clustering iterations
-    int seed = 6666; // seed for the random number generator
-    int max_points_per_centroid = 256; // to limit size of dataset, otherwise the training set is subsampled
+    int niter = 25;
+    int seed = 6666;
+    int max_points_per_centroid = 256;
+    MetricType metric = MetricType::L2; // 默认使用 L2 距离
 };
 
 class Clustering {
@@ -22,11 +29,11 @@ public:
     std::unique_ptr<float[]> get_centroids() const;
 
 private:
-    size_t d; // dimension of the vectors
-    size_t nlist; // number of centroids
+    size_t d;
+    size_t nlist;
     ClusteringParameters cp;
 
-    std::vector<float> centroids; // centroids (nlist * d)
+    std::vector<float> centroids;
 
     void subsample_training_set(size_t& n, std::unique_ptr<float[]> &candidate_codes);
     void initialize_centroids(size_t n, std::unique_ptr<float[]> &candidate_codes);
