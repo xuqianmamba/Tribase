@@ -9,28 +9,12 @@ class IVFScan {
     size_t d;
     size_t k;
     float* query;
-    IVFScan(size_t d, size_t k, float* query)
-        : d(d), k(k), query(query) {}
-    void scan_codes(
-        size_t scan_begin,
-        size_t scan_end,
-        size_t list_size,
-        const float* codes,
-        const idx_t* ids,
-        const float centroid2query,
-        const float* candicate2centroid,
-        const float* sqrt_candicate2centroid,
-        const size_t sub_k,
-        const idx_t* nearest_IP_id,
-        const float* nearest_IP_dis,
-        const idx_t* farest_IP_id,
-        const float* farest_IP_dis,
-        const idx_t* nearest_L2_id,
-        const float* nearest_L2_dis,
-        bool* if_skip,
-        float* simi,
-        float* idxi,
-        Stats& stats) {
+    IVFScan(size_t d, size_t k, float* query) : d(d), k(k), query(query) {}
+    void scan_codes(size_t scan_begin, size_t scan_end, size_t list_size, const float* codes, const idx_t* ids,
+                    const float centroid2query, const float* candicate2centroid, const float* sqrt_candicate2centroid,
+                    const size_t sub_k, const idx_t* nearest_IP_id, const float* nearest_IP_dis,
+                    const idx_t* farest_IP_id, const float* farest_IP_dis, const idx_t* nearest_L2_id,
+                    const float* nearest_L2_dis, bool* if_skip, float* simi, float* idxi, Stats& stats) {
         float max_radius;
         float diff_cos, diff_sin;
         float max_radius_plus_centroid2query;
@@ -48,7 +32,8 @@ class IVFScan {
             if (max_radius + simi[0] >= centroid2query) {
                 diff_cos = sqrt(centroid2query - simi[0]) * inv_sqrt_centroid2query;
             } else {
-                diff_cos = (max_radius_plus_centroid2query - simi[0]) * inv_two_times_sqrt_max_radius_times_centroid2query;
+                diff_cos =
+                    (max_radius_plus_centroid2query - simi[0]) * inv_two_times_sqrt_max_radius_times_centroid2query;
             }
             diff_sin = sqrt(1 - diff_cos * diff_cos);
         }
@@ -77,7 +62,8 @@ class IVFScan {
                     if (max_radius + simi[0] >= centroid2query) {
                         diff_cos = sqrt(centroid2query - simi[0]) * inv_sqrt_centroid2query;
                     } else {
-                        diff_cos = (max_radius_plus_centroid2query - simi[0]) * inv_two_times_sqrt_max_radius_times_centroid2query;
+                        diff_cos = (max_radius_plus_centroid2query - simi[0]) *
+                                   inv_two_times_sqrt_max_radius_times_centroid2query;
                     }
                     diff_sin = sqrt(1 - diff_cos * diff_cos);
                 }
@@ -89,7 +75,8 @@ class IVFScan {
 
             if constexpr (opt_level & OptLevel::OPT_SUBNN_IP) {
                 if (centroid2query > simi[0]) {
-                    float this_cos = (distances2center[j] + centroid2query - dis) * point5_times_inv_sqrt_centroid2query / sqrt_distances2center[j];
+                    float this_cos = (distances2center[j] + centroid2query - dis) *
+                                     point5_times_inv_sqrt_centroid2query / sqrt_distances2center[j];
                     float this_sin = sqrt(1 - this_cos * this_cos);
 
                     float tmpa = diff_cos * this_cos;
@@ -103,7 +90,8 @@ class IVFScan {
 #endif
                         size_t skip_fake_id_begin = j * sub_k;
                         size_t skip_fake_id_end = skip_fake_id_begin + sub_k;
-                        for (size_t skip_fake_id = skip_fake_id_begin; skip_fake_id < skip_fake_id_end; skip_fake_id++) {
+                        for (size_t skip_fake_id = skip_fake_id_begin; skip_fake_id < skip_fake_id_end;
+                             skip_fake_id++) {
                             size_t skip_true_id = nearest_IP_id[skip_fake_id];
                             if (skip_true_id > 0 && nearest_IP_dis[skip_fake_id] > cut_degree_cos_minus) {
 #ifdef DEBUG
@@ -122,7 +110,8 @@ class IVFScan {
 
                         skip_fake_id_begin = j * sub_k;
                         skip_fake_id_end = skip_fake_id_begin + sub_k;
-                        for (size_t skip_fake_id = skip_fake_id_begin; skip_fake_id < skip_fake_id_end; skip_fake_id++) {
+                        for (size_t skip_fake_id = skip_fake_id_begin; skip_fake_id < skip_fake_id_end;
+                             skip_fake_id++) {
                             size_t skip_true_id = farest_IP_id[skip_fake_id];
                             if (skip_true_id > 0 && farest_IP_dis[skip_fake_id] < cut_degree_cos_plus) {
 #ifdef DEBUG

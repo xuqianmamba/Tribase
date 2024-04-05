@@ -11,15 +11,12 @@ namespace tribase {
 
 // A class for measuring execution time
 class Stopwatch {
-   public:
+public:
     // Constructor initializes the start time
-    Stopwatch()
-        : start(std::chrono::high_resolution_clock::now()) {}
+    Stopwatch() : start(std::chrono::high_resolution_clock::now()) {}
 
     // Resets the start time to the current time
-    void reset() {
-        start = std::chrono::high_resolution_clock::now();
-    }
+    void reset() { start = std::chrono::high_resolution_clock::now(); }
 
     // Returns the elapsed time in milliseconds since the stopwatch was started or last reset
     double elapsedMilliseconds() const {
@@ -27,7 +24,7 @@ class Stopwatch {
         return std::chrono::duration<double, std::milli>(end - start).count();
     }
 
-   private:
+private:
     // The start time
     std::chrono::time_point<std::chrono::high_resolution_clock> start;
 };

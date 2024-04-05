@@ -1,0 +1,7 @@
+---
+BasedOnStyle: Google
+IndentWidth: 4
+ColumnLimit: 120
+AccessModifierOffset: -4
+AllowShortIfStatementsOnASingleLine: false
+SortIncludes: true

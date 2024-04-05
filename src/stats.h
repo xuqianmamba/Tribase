@@ -3,11 +3,12 @@
 #include <iomanip>
 #include <iostream>
 #include <string_view>
+
 #include "common.h"
 
 namespace tribase {
 class Stats {
-   public:
+public:
     size_t total_count;
 
     // triangle part
@@ -23,11 +24,11 @@ class Stats {
     size_t skip_subnn_IP_count;
 
     // summary
-   private:
+private:
     float check_subnn_L2;
     float check_subnn_IP;
 
-   public:
+public:
     void reset() {
         total_count = 0;
         skip_triangle_count = 0;
@@ -51,8 +52,7 @@ class Stats {
                   << "skip_triangle_large: " << skip_triangle_large_count << std::endl
                   << "skip_subnn_L2: " << skip_subnn_L2_count << std::endl
                   << "skip_subnn_IP: " << skip_subnn_IP_count << std::endl
-                  << std::fixed << std::setprecision(3)
-                  << "check_subnn_L2: " << check_subnn_L2 << std::endl
+                  << std::fixed << std::setprecision(3) << "check_subnn_L2: " << check_subnn_L2 << std::endl
                   << "check_subnn_IP: " << check_subnn_IP << std::endl;
     }
 
@@ -67,13 +67,13 @@ class Stats {
             return;
         }
         if (!append) {
-            ofs << "total,skip_triangle,skip_triangle_large,skip_subnn_L2,skip_subnn_IP,check_subnn_L2,check_subnn_IP\n";
+            ofs << "total,skip_triangle,skip_triangle_large,skip_subnn_L2,skip_subnn_IP,check_subnn_L2,check_subnn_"
+                   "IP\n";
         }
         check_subnn_IP = check_subnn_IP_count == 0 ? 0 : check_subnn_IP_ele_count / check_subnn_IP_count;
         check_subnn_L2 = check_subnn_L2_count == 0 ? 0 : check_subnn_L2_ele_count / check_subnn_L2_count;
         ofs << total_count << "," << skip_triangle_count << "," << skip_triangle_large_count << ","
-            << skip_subnn_L2_count << "," << skip_subnn_IP_count << ","
-            << std::fixed << std::setprecision(3)
+            << skip_subnn_L2_count << "," << skip_subnn_IP_count << "," << std::fixed << std::setprecision(3)
             << check_subnn_L2 << "," << check_subnn_IP << "\n";
     }
 };

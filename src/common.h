@@ -1,13 +1,11 @@
 #pragma once
 #define DEBUG
 #include <inttypes.h>
+
 #include <utility>
 
 namespace tribase {
-enum class MetricType {
-    METRIC_INNER_PRODUCT = 0,
-    METRIC_L2
-};
+enum class MetricType { METRIC_INNER_PRODUCT = 0, METRIC_L2 };
 
 enum class OptLevel {
     OPT_TRIANGLE = 0b001,

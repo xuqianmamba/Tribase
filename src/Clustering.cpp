@@ -1,5 +1,7 @@
 #include "Clustering.h"
+
 #include <omp.h>
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -51,7 +53,8 @@ void Clustering::train(size_t n, const std::unique_ptr<float[]>& candidate_codes
 //     n = max_samples; // 更新数据点数量
 // }
 
-void Clustering::subsample_training_set(size_t& n, const std::unique_ptr<float[]>& candidate_codes, std::unique_ptr<float[]>& sampled_codes) {
+void Clustering::subsample_training_set(size_t& n, const std::unique_ptr<float[]>& candidate_codes,
+                                        std::unique_ptr<float[]>& sampled_codes) {
     size_t max_samples = nlist * cp.max_points_per_centroid;
     if (n <= max_samples) {
         // 如果数据点数量小于或等于最大样本数，不需要采样
@@ -110,16 +113,19 @@ void Clustering::update_centroids(size_t n, std::unique_ptr<float[]>& candidate_
     Eigen::MatrixXf new_centroids = Eigen::MatrixXf::Zero(d, nlist);
 
     if (cp.metric == MetricType::METRIC_L2) {
-        Eigen::MatrixXf dists = (centers.transpose().replicate(1, n) - codes.replicate(1, nlist).transpose()).colwise().squaredNorm();
+        Eigen::MatrixXf dists =
+            (centers.transpose().replicate(1, n) - codes.replicate(1, nlist).transpose()).colwise().squaredNorm();
         for (size_t i = 0; i < n; ++i) {
-            size_t closest_centroid = std::distance(dists.col(i).data(), std::min_element(dists.col(i).data(), dists.col(i).data() + nlist));
+            size_t closest_centroid =
+                std::distance(dists.col(i).data(), std::min_element(dists.col(i).data(), dists.col(i).data() + nlist));
             counts[closest_centroid]++;
             new_centroids.col(closest_centroid) += codes.col(i);
         }
     } else if (cp.metric == MetricType::METRIC_INNER_PRODUCT) {
         Eigen::MatrixXf dots = centers.transpose() * codes;
         for (size_t i = 0; i < n; ++i) {
-            size_t closest_centroid = std::distance(dots.col(i).data(), std::max_element(dots.col(i).data(), dots.col(i).data() + nlist));
+            size_t closest_centroid =
+                std::distance(dots.col(i).data(), std::max_element(dots.col(i).data(), dots.col(i).data() + nlist));
             counts[closest_centroid]++;
             new_centroids.col(closest_centroid) += codes.col(i);
         }

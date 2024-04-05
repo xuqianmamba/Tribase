@@ -1,6 +1,7 @@
 #include <limits>
 #include <queue>
 #include <utility>
+
 #include "common.h"
 
 namespace tribase {
@@ -36,8 +37,7 @@ inline void heap_replace_top(size_t k, float* bh_val, idx_t* bh_ids, float val, 
         if (i1 > k)
             break;
 
-        if ((i2 == k + 1) ||
-            is_small(bh_val[i1], bh_val[i2])) {
+        if ((i2 == k + 1) || is_small(bh_val[i1], bh_val[i2])) {
             if (is_small(val, bh_val[i1])) {
                 break;
             }

@@ -13,9 +13,9 @@ void Index::train(size_t n, std::unique_ptr<float[]> &codes) {
     // 这里假设Clustering类已经定义好，并且有一个合适的构造函数和train方法
     ClusteringParameters cp;
     cp.metric = this->metric;
-    cp.niter = 25; // 或其他合适的值
-    cp.seed = 6666; // 或其他合适的值
-    cp.max_points_per_centroid = 256; // 或其他合适的值
+    cp.niter = 25;                     // 或其他合适的值
+    cp.seed = 6666;                    // 或其他合适的值
+    cp.max_points_per_centroid = 256;  // 或其他合适的值
 
     Clustering clustering(this->d, this->nlist, cp);
     clustering.train(n, codes);
@@ -26,4 +26,4 @@ void Index::train(size_t n, std::unique_ptr<float[]> &codes) {
 
 // 其他查询方法的实现
 
-} // namespace tribase
+}  // namespace tribase
