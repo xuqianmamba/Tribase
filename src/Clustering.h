@@ -24,7 +24,7 @@ struct ClusteringParameters {
 class Clustering {
    public:
     Clustering(size_t d, size_t nlist, const ClusteringParameters& cp = ClusteringParameters());
-    void train(size_t n, float* candidate_codes);
+    void train(size_t n, const float* candidate_codes);
     float* get_centroids() const;
 
    private:
@@ -34,7 +34,7 @@ class Clustering {
 
     std::vector<float> centroids;
 
-    void subsample_training_set(size_t& n, float* candidate_codes, float*& sampled_codes);
+    void subsample_training_set(size_t& n, const float* candidate_codes, float*& sampled_codes);
     void initialize_centroids(size_t n, float* candidate_codes);
     void update_centroids(size_t n, float* candidate_codes);
     void apply_centroid_perturbations();
