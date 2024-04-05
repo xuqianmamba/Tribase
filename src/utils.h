@@ -11,9 +11,10 @@ namespace tribase {
 
 // A class for measuring execution time
 class Stopwatch {
-public:
+   public:
     // Constructor initializes the start time
-    Stopwatch() : start(std::chrono::high_resolution_clock::now()) {}
+    Stopwatch()
+        : start(std::chrono::high_resolution_clock::now()) {}
 
     // Resets the start time to the current time
     void reset() { start = std::chrono::high_resolution_clock::now(); }
@@ -24,7 +25,7 @@ public:
         return std::chrono::duration<double, std::milli>(end - start).count();
     }
 
-private:
+   private:
     // The start time
     std::chrono::time_point<std::chrono::high_resolution_clock> start;
 };
@@ -39,6 +40,16 @@ float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t s
     }
 
     return sqrt(distance);
+}
+
+// Calculates the inner product between two vectors
+float calculatedInnerProduct(const float* vec1, const float* vec2, size_t size) {
+    float distance = 0.0;
+    // Calculate the squared difference for each dimension
+    for (size_t i = 0; i < size; ++i) {
+        distance += vec1[i] * vec2[i];
+    }
+    return distance;
 }
 
 // Calculates the magnitude (length) of a vector
