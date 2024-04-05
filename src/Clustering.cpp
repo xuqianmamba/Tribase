@@ -9,21 +9,56 @@ namespace tribase {
 Clustering::Clustering(size_t d, size_t nlist, const ClusteringParameters& cp)
     : d(d), nlist(nlist), cp(cp), centroids(nlist * d, 0.0f) {}
 
-void Clustering::train(size_t n, std::unique_ptr<float[]> &candidate_codes) {
-    subsample_training_set(n, candidate_codes);
-    initialize_centroids(n, candidate_codes);
+void Clustering::train(size_t n, const std::unique_ptr<float[]> &candidate_codes) {
+    // 创建一个新的unique_ptr用于存储采样后的数据
+    std::unique_ptr<float[]> sampled_codes;
+    // 调用修改后的subsample_training_set方法，传入sampled_codes以存储采样数据
+    subsample_training_set(n, candidate_codes, sampled_codes);
+
+    // 如果采样后的数据为空（即原始数据量小于等于最大样本数），则使用原始数据进行训练
+    if (!sampled_codes) {
+        sampled_codes = std::make_unique<float[]>(n * d);
+        std::copy_n(candidate_codes.get(), n * d, sampled_codes.get());
+    }
+
+    initialize_centroids(n, sampled_codes);
 
     for (int iter = 0; iter < cp.niter; ++iter) {
-        update_centroids(n, candidate_codes);
+        update_centroids(n, sampled_codes);
     }
 
     apply_centroid_perturbations();
 }
 
-void Clustering::subsample_training_set(size_t& n, std::unique_ptr<float[]> &candidate_codes) {
+// void Clustering::subsample_training_set(size_t& n, std::unique_ptr<float[]> &candidate_codes) {
+//     size_t max_samples = nlist * cp.max_points_per_centroid;
+//     if (n <= max_samples) {
+//         // 如果数据点数量小于或等于最大样本数，不需要采样
+//         return;
+//     }
+
+//     std::vector<size_t> indices(n);
+//     std::iota(indices.begin(), indices.end(), 0); // 填充索引
+
+//     std::shuffle(indices.begin(), indices.end(), std::default_random_engine(cp.seed)); // 随机打乱索引
+
+//     std::unique_ptr<float[]> sampled_codes(new float[max_samples * d]);
+//     for (size_t i = 0; i < max_samples; ++i) {
+//         std::copy_n(candidate_codes.get() + indices[i] * d, d, sampled_codes.get() + i * d);
+//     }
+
+//     candidate_codes.swap(sampled_codes); // 使用采样后的数据替换原始数据
+//     n = max_samples; // 更新数据点数量
+// }
+
+
+void Clustering::subsample_training_set(size_t& n, const std::unique_ptr<float[]> &candidate_codes, std::unique_ptr<float[]> &sampled_codes) {
     size_t max_samples = nlist * cp.max_points_per_centroid;
     if (n <= max_samples) {
         // 如果数据点数量小于或等于最大样本数，不需要采样
+        // 直接复制原始数据到sampled_codes
+        sampled_codes = std::make_unique<float[]>(n * d);
+        std::copy_n(candidate_codes.get(), n * d, sampled_codes.get());
         return;
     }
 
@@ -32,12 +67,11 @@ void Clustering::subsample_training_set(size_t& n, std::unique_ptr<float[]> &can
 
     std::shuffle(indices.begin(), indices.end(), std::default_random_engine(cp.seed)); // 随机打乱索引
 
-    std::unique_ptr<float[]> sampled_codes(new float[max_samples * d]);
+    sampled_codes = std::make_unique<float[]>(max_samples * d);
     for (size_t i = 0; i < max_samples; ++i) {
         std::copy_n(candidate_codes.get() + indices[i] * d, d, sampled_codes.get() + i * d);
     }
 
-    candidate_codes.swap(sampled_codes); // 使用采样后的数据替换原始数据
     n = max_samples; // 更新数据点数量
 }
 
