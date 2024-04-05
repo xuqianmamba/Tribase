@@ -9,12 +9,12 @@ namespace tribase {
 Clustering::Clustering(size_t d, size_t nlist, const ClusteringParameters& cp)
     : d(d), nlist(nlist), cp(cp), centroids(nlist * d, 0.0f) {}
 
-void Clustering::train(size_t n, std::unique_ptr<float[]> &candicate_codes) {
-    subsample_training_set(n, candicate_codes);
-    initialize_centroids(n, candicate_codes);
+void Clustering::train(size_t n, std::unique_ptr<float[]> &candidate_codes) {
+    subsample_training_set(n, candidate_codes);
+    initialize_centroids(n, candidate_codes);
 
     for (int iter = 0; iter < cp.niter; ++iter) {
-        update_centroids(n, candicate_codes);
+        update_centroids(n, candidate_codes);
     }
 
     apply_centroid_perturbations();
@@ -55,6 +55,7 @@ void Clustering::initialize_centroids(size_t n, std::unique_ptr<float[]> &candid
             centroids[i * d + j] = candidate_codes[randIndex * d + j];
         }
     }
+}
 
 void Clustering::update_centroids(size_t n, std::unique_ptr<float[]> &candidate_codes) {
     std::vector<size_t> counts(nlist, 0); // 每个聚类中的点数
@@ -95,6 +96,5 @@ std::unique_ptr<float[]> Clustering::get_centroids() const {
     std::memcpy(centroid_codes.get(), centroids.data(), sizeof(float) * nlist * d);
     return centroid_codes;
 }
-
 
 } // namespace tribase
