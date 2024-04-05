@@ -32,15 +32,10 @@ class Stopwatch {
 };
 
 // Calculates the Euclidean distance between two vectors
-float calculatedEuclideanDistance(const std::vector<float>& vec1, const std::vector<float>& vec2) {
-    // Ensure the vectors are of the same size
-    if (vec1.size() != vec2.size()) {
-        throw std::invalid_argument("Vectors must be of the same size.");
-    }
-
+float calculatedEuclideanDistance(const std::unique_ptr<float[]>& vec1, const std::unique_ptr<float[]>& vec2, size_t size) {
     float distance = 0.0;
     // Calculate the squared difference for each dimension
-    for (size_t i = 0; i < vec1.size(); ++i) {
+    for (size_t i = 0; i < size; ++i) {
         float diff = vec1[i] - vec2[i];
         distance += diff * diff;
     }
@@ -49,28 +44,23 @@ float calculatedEuclideanDistance(const std::vector<float>& vec1, const std::vec
 }
 
 // Calculates the magnitude (length) of a vector
-float vectorMagnitude(const std::vector<float>& vec) {
+float vectorMagnitude(const std::unique_ptr<float[]>& vec, size_t size) {
     float sum = 0.0;
-    for (float val : vec) {
-        sum += val * val;
+    for (size_t i = 0; i < size; ++i) {
+        sum += vec[i] * vec[i];
     }
     return sqrt(sum);
 }
 
 // Calculates the cosine similarity between two vectors
-float calculateCosineSimilarity(const std::vector<float>& vec1, const std::vector<float>& vec2) {
-    // Ensure the vectors are of the same size
-    if (vec1.size() != vec2.size()) {
-        throw std::invalid_argument("Vectors must be of the same size.");
-    }
-
+float calculateCosineSimilarity(const std::unique_ptr<float[]>& vec1, const std::unique_ptr<float[]>& vec2, size_t size) {
     float dotProduct = 0.0;
-    for (size_t i = 0; i < vec1.size(); ++i) {
+    for (size_t i = 0; i < size; ++i) {
         dotProduct += vec1[i] * vec2[i];
     }
 
-    float magnitude1 = vectorMagnitude(vec1);
-    float magnitude2 = vectorMagnitude(vec2);
+    float magnitude1 = vectorMagnitude(vec1, size);
+    float magnitude2 = vectorMagnitude(vec2, size);
 
     if (magnitude1 == 0 || magnitude2 == 0) {
         throw std::invalid_argument("One or both vectors are zero vectors.");
