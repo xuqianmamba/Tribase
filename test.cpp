@@ -1,17 +1,12 @@
-#include <queue>
-#include <utility>
-using Heap = std::priority_queue<std::pair<float, int>>;
-float update1(Heap h) {
-    auto [x, _] = h.top();
-    if (x < 100) {
-        return x;
+#include <cstring>
+#include <iostream>
+#include <memory>
+#include <numeric>
+int main() {
+    // std::cout << sizeof(bool) << std::endl;
+    bool x[100];
+    memset(x, 2, 100);
+    for (int i = 0; i < 100; i++) {
+        std::cout << x[i] << std::endl;
     }
-    return 10;
-}
-
-float update2(float* xs, int* ys) {
-    if (xs[0] < 100) {
-        return xs[0];
-    }
-    return 10;
 }

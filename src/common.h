@@ -5,9 +5,11 @@
 #include <utility>
 
 namespace tribase {
-enum class MetricType { METRIC_INNER_PRODUCT = 0, METRIC_L2 };
+enum MetricType { METRIC_INNER_PRODUCT = 0,
+                  METRIC_L2 };
 
-enum class OptLevel {
+enum OptLevel {
+    OPT_NONE = 0b000,
     OPT_TRIANGLE = 0b001,
     OPT_SUBNN_L2 = 0b010,
     OPT_SUBNN_IP = 0b100,

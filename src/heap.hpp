@@ -9,6 +9,7 @@ namespace tribase {
 template <MetricType metric = MetricType::METRIC_L2>
 inline void heap_init(size_t k, float* bh_val, idx_t* bh_ids) {
     static_assert(std::is_signed<idx_t>::value, "idx_t must be signed");
+#pragma omp parallel for
     for (size_t i = 0; i < k; i++) {
         if constexpr (metric == MetricType::METRIC_L2) {
             bh_val[i] = std::numeric_limits<float>::lowest();

@@ -5,19 +5,58 @@
 #include "utils.h"
 
 namespace tribase {
-template <MetricType metric, OptLevel opt_level>
-class IVFScan {
+
+class IVFScanBase {
+   public:
     size_t d;
     size_t k;
-    float* query;
-    IVFScan(size_t d, size_t k, float* query)
-        : d(d), k(k), query(query) {}
+    const float* query;
+
+    IVFScanBase(size_t d, size_t k)
+        : d(d), k(k) {}
+
+    void set_query(const float* query) {
+        this->query = query;
+    }
+
+    virtual void lite_scan_codes(size_t list_size,
+                                 const float* codes,
+                                 const idx_t* ids,
+                                 float* simi,
+                                 idx_t* idxi) = 0;
+
+    virtual void scan_codes(size_t scan_begin,
+                            size_t scan_end,
+                            size_t list_size,
+                            const float* codes,
+                            const idx_t* ids,
+                            const float centroid2query,
+                            const float* candicate2centroid,
+                            const float* sqrt_candicate2centroid,
+                            const size_t sub_k,
+                            const idx_t* nearest_IP_id,
+                            const float* nearest_IP_dis,
+                            const idx_t* farest_IP_id,
+                            const float* farest_IP_dis,
+                            const idx_t* nearest_L2_id,
+                            const float* nearest_L2_dis,
+                            bool* if_skip,
+                            float* simi,
+                            idx_t* idxi,
+                            Stats* stats) = 0;
+};
+
+template <MetricType metric, OptLevel opt_level>
+class IVFScan : public IVFScanBase {
+   public:
+    IVFScan(size_t d, size_t k)
+        : IVFScanBase(d, k) {}
 
     void lite_scan_codes(size_t list_size,
                          const float* codes,
                          const idx_t* ids,
                          float* simi,
-                         float* idxi) {
+                         idx_t* idxi) override {
         for (size_t i = 0; i < list_size; i++) {
             const float* candicate = codes + i * d;
             float dis = 0;
@@ -51,8 +90,8 @@ class IVFScan {
                     const float* nearest_L2_dis,
                     bool* if_skip,
                     float* simi,
-                    float* idxi,
-                    Stats* stats) {
+                    idx_t* idxi,
+                    Stats* stats) override {
         float max_radius;
         float diff_cos, diff_sin;
         float max_radius_plus_centroid2query;

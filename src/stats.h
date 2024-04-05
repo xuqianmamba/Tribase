@@ -3,12 +3,13 @@
 #include <iomanip>
 #include <iostream>
 #include <string_view>
+#include <vector>
 
 #include "common.h"
 
 namespace tribase {
 class Stats {
-public:
+   public:
     size_t total_count;
 
     // triangle part
@@ -24,11 +25,11 @@ public:
     size_t skip_subnn_IP_count;
 
     // summary
-private:
+   private:
     float check_subnn_L2;
     float check_subnn_IP;
 
-public:
+   public:
     void reset() {
         total_count = 0;
         skip_triangle_count = 0;
@@ -77,4 +78,19 @@ public:
             << check_subnn_L2 << "," << check_subnn_IP << "\n";
     }
 };
+
+Stats mergeStats(std::vector<Stats>& stats) {
+    Stats merged;
+    for (auto& s : stats) {
+        merged.total_count += s.total_count;
+        merged.skip_triangle_count += s.skip_triangle_count;
+        merged.skip_triangle_large_count += s.skip_triangle_large_count;
+        merged.check_subnn_L2_ele_count += s.check_subnn_L2_ele_count;
+        merged.check_subnn_IP_ele_count += s.check_subnn_IP_ele_count;
+        merged.check_subnn_L2_count += s.check_subnn_L2_count;
+        merged.check_subnn_IP_count += s.check_subnn_IP_count;
+        merged.skip_subnn_L2_count += s.skip_subnn_L2_count;
+        merged.skip_subnn_IP_count += s.skip_subnn_IP_count;
+    }
+    return merged;
 }  // namespace tribase

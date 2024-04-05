@@ -10,6 +10,8 @@ class IVF {
     size_t list_size;
     size_t d;
     size_t sub_k;
+    std::unique_ptr<float[]> codes;
+    std::unique_ptr<size_t[]> ids;
     std::unique_ptr<size_t[]> candidate_id;
     std::unique_ptr<float[]> candidate_codes;
     std::unique_ptr<float[]> candidate2centroid;
@@ -39,7 +41,14 @@ class IVF {
     void reset(size_t listSize, size_t d, size_t subK);
 
     // Additional methods to manipulate the data can be added here
-    const float* get_candidate_codes() const { return candidate_codes.get(); }
+    const size_t get_list_size() const { return list_size; }
+    const size_t get_d() const { return d; }
+    const size_t get_sub_k() const { return sub_k; }
+    const float* get_codes() const { return codes.get(); }
+    const float* get_codes(size_t i) const { return codes.get() + i * d; }
+    const size_t* get_ids() const { return ids.get(); }
+    const size_t* get_ids(size_t i) const { return ids.get() + i; }
+    const const float* get_candidate_codes() const { return candidate_codes.get(); }
     const float* get_candidate_codes(size_t i) const { return candidate_codes.get() + i * d; }
     const size_t* get_candidate_id() const { return candidate_id.get(); }
     const size_t* get_candidate_id(size_t i) const { return candidate_id.get() + i; }
@@ -56,6 +65,9 @@ class IVF {
     const float* get_sub_nearest_IP_dis() const { return sub_nearest_IP_dis.get(); }
     const float* get_sub_nearest_IP_dis(size_t i, size_t k) const { return sub_nearest_IP_dis.get() + i * sub_k + k; }
     const idx_t* get_sub_farest_IP_id() const { return sub_farest_IP_id.get(); }
+    const idx_t* get_sub_farest_IP_id(size_t i, size_t k) const { return sub_farest_IP_id.get() + i * sub_k + k; }
+    const float* get_sub_farest_IP_dis() const { return sub_farest_IP_dis.get(); }
+    const float* get_sub_farest_IP_dis(size_t i, size_t k) const { return sub_farest_IP_dis.get() + i * sub_k + k; }
 };
 }  // namespace tribase
 
