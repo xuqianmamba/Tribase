@@ -30,46 +30,47 @@ Index::Index(size_t d, size_t nlist, size_t nprobe, MetricType metric, size_t su
 //     this->centroid_codes = clustering.get_centroids();
 // }
 
-void Index::single_thread_search(size_t n, const float* queries, float* distances, idx_t* labels, Stats* stats) {
-    auto get_scaner = [&](size_t k) {
-        if (metric == MetricType::METRIC_L2) {
-            switch (opt_level) {
-                case OptLevel::OPT_NONE:
-                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_NONE>(d, k));
-                case OptLevel::OPT_TRIANGLE:
-                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_TRIANGLE>(d, k));
-                case OptLevel::OPT_SUBNN_L2:
-                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_SUBNN_L2>(d, k));
-                case OptLevel::OPT_SUBNN_IP:
-                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_SUBNN_IP>(d, k));
-                case OptLevel::OPT_TRI_SUBNN_L2:
-                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_TRI_SUBNN_L2>(d, k));
-                case OptLevel::OPT_TRI_SUBNN_IP:
-                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_TRI_SUBNN_IP>(d, k));
-                case OptLevel::OPT_ALL:
-                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_ALL>(d, k));
-            }
-        } else {
-            switch (opt_level) {
-                case OptLevel::OPT_NONE:
-                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_INNER_PRODUCT, OptLevel::OPT_NONE>(d, k));
-                case OptLevel::OPT_TRIANGLE:
-                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_INNER_PRODUCT, OptLevel::OPT_TRIANGLE>(d, k));
-                case OptLevel::OPT_SUBNN_L2:
-                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_INNER_PRODUCT, OptLevel::OPT_SUBNN_L2>(d, k));
-                case OptLevel::OPT_SUBNN_IP:
-                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_INNER_PRODUCT, OptLevel::OPT_SUBNN_IP>(d, k));
-                case OptLevel::OPT_TRI_SUBNN_L2:
-                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_INNER_PRODUCT, OptLevel::OPT_TRI_SUBNN_L2>(d, k));
-                case OptLevel::OPT_TRI_SUBNN_IP:
-                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_INNER_PRODUCT, OptLevel::OPT_TRI_SUBNN_IP>(d, k));
-                case OptLevel::OPT_ALL:
-                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_INNER_PRODUCT, OptLevel::OPT_ALL>(d, k));
-            }
+std::unique_ptr<IVFScanBase> Index::get_scaner(MetricType metric, OptLevel opt_level, size_t k) {
+    if (metric == MetricType::METRIC_L2) {
+        switch (opt_level) {
+            case OptLevel::OPT_NONE:
+                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_NONE>(d, k));
+            case OptLevel::OPT_TRIANGLE:
+                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_TRIANGLE>(d, k));
+            case OptLevel::OPT_SUBNN_L2:
+                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_SUBNN_L2>(d, k));
+            case OptLevel::OPT_SUBNN_IP:
+                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_SUBNN_IP>(d, k));
+            case OptLevel::OPT_TRI_SUBNN_L2:
+                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_TRI_SUBNN_L2>(d, k));
+            case OptLevel::OPT_TRI_SUBNN_IP:
+                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_TRI_SUBNN_IP>(d, k));
+            case OptLevel::OPT_ALL:
+                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_ALL>(d, k));
         }
-    };
-    std::unique_ptr<IVFScanBase> scaner_quantizer = get_scaner(sub_k);
-    std::unique_ptr<IVFScanBase> scaner = get_scaner(k);
+    } else {
+        switch (opt_level) {
+            case OptLevel::OPT_NONE:
+                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_INNER_PRODUCT, OptLevel::OPT_NONE>(d, k));
+            case OptLevel::OPT_TRIANGLE:
+                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_INNER_PRODUCT, OptLevel::OPT_TRIANGLE>(d, k));
+            case OptLevel::OPT_SUBNN_L2:
+                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_INNER_PRODUCT, OptLevel::OPT_SUBNN_L2>(d, k));
+            case OptLevel::OPT_SUBNN_IP:
+                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_INNER_PRODUCT, OptLevel::OPT_SUBNN_IP>(d, k));
+            case OptLevel::OPT_TRI_SUBNN_L2:
+                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_INNER_PRODUCT, OptLevel::OPT_TRI_SUBNN_L2>(d, k));
+            case OptLevel::OPT_TRI_SUBNN_IP:
+                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_INNER_PRODUCT, OptLevel::OPT_TRI_SUBNN_IP>(d, k));
+            case OptLevel::OPT_ALL:
+                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_INNER_PRODUCT, OptLevel::OPT_ALL>(d, k));
+        }
+    }
+};
+
+void Index::single_thread_search(size_t n, const float* queries, float* distances, idx_t* labels, Stats* stats) {
+    std::unique_ptr<IVFScanBase> scaner_quantizer = get_scaner(metric, OPT_NONE, sub_k);
+    std::unique_ptr<IVFScanBase> scaner = get_scaner(metric, opt_level, k);
 
     std::unique_ptr<float[]> centroid2queries = std::make_unique<float[]>(n * nprobe);
     std::unique_ptr<idx_t[]> listidqueries = std::make_unique<idx_t[]>(n * nprobe);

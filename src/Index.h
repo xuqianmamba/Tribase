@@ -4,6 +4,7 @@
 #include <memory>
 #include "Clustering.h"
 #include "IVF.h"
+#include "IVFScan.hpp"
 #include "common.h"
 
 namespace tribase {
@@ -18,6 +19,8 @@ class Index {
 
     void single_thread_search(size_t n, const float* queries, float* distances, idx_t* labels, Stats* stats);
     void search(size_t n, const float* queries, float* distances, idx_t* labels);
+
+    std::unique_ptr<IVFScanBase> get_scaner(MetricType metric, OptLevel opt_level, size_t k);
 
     // 其他查询方法的声明
 
