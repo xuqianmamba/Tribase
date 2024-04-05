@@ -12,9 +12,9 @@ inline void heap_init(size_t k, float* bh_val, idx_t* bh_ids) {
 #pragma omp parallel for
     for (size_t i = 0; i < k; i++) {
         if constexpr (metric == MetricType::METRIC_L2) {
-            bh_val[i] = std::numeric_limits<float>::lowest();
-        } else {
             bh_val[i] = std::numeric_limits<float>::max();
+        } else {
+            bh_val[i] = std::numeric_limits<float>::lowest();
         }
         bh_ids[i] = -1;
     }
@@ -25,11 +25,11 @@ inline void heap_replace_top(size_t k, float* bh_val, idx_t* bh_ids, float val, 
     bh_ids--;
     bh_val--;
     size_t i = 1, i1, i2;
-    constexpr auto is_small = [&](float a, float b) {
+    constexpr auto is_greater = [&](float a, float b) {
         if constexpr (metric == MetricType::METRIC_L2) {
-            return a < b;
-        } else {
             return a > b;
+        } else {
+            return a < b;
         }
     };
     while (1) {
@@ -38,15 +38,15 @@ inline void heap_replace_top(size_t k, float* bh_val, idx_t* bh_ids, float val, 
         if (i1 > k)
             break;
 
-        if ((i2 == k + 1) || is_small(bh_val[i1], bh_val[i2])) {
-            if (is_small(val, bh_val[i1])) {
+        if ((i2 == k + 1) || is_greater(bh_val[i1], bh_val[i2])) {
+            if (is_greater(val, bh_val[i1])) {
                 break;
             }
             bh_val[i] = bh_val[i1];
             bh_ids[i] = bh_ids[i1];
             i = i1;
         } else {
-            if (is_small(val, bh_val[i2])) {
+            if (is_greater(val, bh_val[i2])) {
                 break;
             }
             bh_val[i] = bh_val[i2];
