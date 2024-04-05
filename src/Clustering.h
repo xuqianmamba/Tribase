@@ -5,6 +5,7 @@
 #include <memory>
 #include <random>
 #include <vector>
+#include "common.h"
 #include "utils.h"
 
 namespace tribase {
@@ -18,7 +19,7 @@ struct ClusteringParameters {
     int niter = 25;
     int seed = 6666;
     int max_points_per_centroid = 256;
-    MetricType metric = MetricType::L2;  // 默认使用 L2 距离
+    MetricType metric = MetricType::METRIC_L2;  // 默认使用 L2 距离
 };
 
 class Clustering {

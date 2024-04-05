@@ -3,6 +3,7 @@
 
 #include <chrono>
 #include <cmath>
+#include <memory>
 #include <stdexcept>
 #include <vector>
 
@@ -32,7 +33,7 @@ class Stopwatch {
 };
 
 // Calculates the Euclidean distance between two vectors
-float calculatedEuclideanDistance(const std::unique_ptr<float[]>& vec1, const std::unique_ptr<float[]>& vec2, size_t size) {
+float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size) {
     float distance = 0.0;
     // Calculate the squared difference for each dimension
     for (size_t i = 0; i < size; ++i) {
@@ -44,7 +45,7 @@ float calculatedEuclideanDistance(const std::unique_ptr<float[]>& vec1, const st
 }
 
 // Calculates the magnitude (length) of a vector
-float vectorMagnitude(const std::unique_ptr<float[]>& vec, size_t size) {
+float vectorMagnitude(const float* vec, size_t size) {
     float sum = 0.0;
     for (size_t i = 0; i < size; ++i) {
         sum += vec[i] * vec[i];
@@ -53,7 +54,7 @@ float vectorMagnitude(const std::unique_ptr<float[]>& vec, size_t size) {
 }
 
 // Calculates the cosine similarity between two vectors
-float calculateCosineSimilarity(const std::unique_ptr<float[]>& vec1, const std::unique_ptr<float[]>& vec2, size_t size) {
+float calculateCosineSimilarity(const float* vec1, const float* vec2, size_t size) {
     float dotProduct = 0.0;
     for (size_t i = 0; i < size; ++i) {
         dotProduct += vec1[i] * vec2[i];
