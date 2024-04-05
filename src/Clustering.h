@@ -11,22 +11,23 @@
 
 namespace tribase {
 
-enum class MetricType { L2, Angular };
+enum class MetricType { L2,
+                        Angular };
 
 struct ClusteringParameters {
     int niter = 25;
     int seed = 6666;
     int max_points_per_centroid = 256;
-    MetricType metric = MetricType::L2;  // 默认使用 L2 距离
+    MetricType metric = MetricType::METRIC_L2;  // 默认使用 L2 距离
 };
 
 class Clustering {
-public:
+   public:
     Clustering(size_t d, size_t nlist, const ClusteringParameters& cp = ClusteringParameters());
     void train(size_t n, float* candidate_codes);
     float* get_centroids() const;
 
-private:
+   private:
     size_t d;
     size_t nlist;
     ClusteringParameters cp;

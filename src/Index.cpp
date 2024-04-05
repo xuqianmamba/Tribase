@@ -1,4 +1,5 @@
 #include "Index.h"
+#include "heap.hpp"
 
 namespace tribase {
 
@@ -9,7 +10,7 @@ Index::Index(size_t d, size_t nlist, size_t nprobe, MetricType metric)
     centroid_codes = std::make_unique<float[]>(nlist * d);
 }
 
-void Index::train(size_t n, std::unique_ptr<float[]> &codes) {
+void Index::train(size_t n, std::unique_ptr<float[]>& codes) {
     // 这里假设Clustering类已经定义好，并且有一个合适的构造函数和train方法
     ClusteringParameters cp;
     cp.metric = this->metric;
@@ -22,6 +23,22 @@ void Index::train(size_t n, std::unique_ptr<float[]> &codes) {
 
     // 假设get_centroids返回的是未归一化的聚类中心
     this->centroid_codes = clustering.get_centroids();
+}
+
+void Index::search(size_t n, const float* queries) {
+    auto init_result = [&](size_t size, float* dis, idx_t* ids) {
+        if (this->metric == MetricType::METRIC_L2) {
+            heap_init<MetricType::METRIC_L2>(size, dis, ids);
+        } else {
+            heap_init<MetricType::METRIC_INNER_PRODUCT>(size, dis, ids);
+        }
+    };
+
+    {  // nprobe
+        std::unique_ptr<float[]> list_simi;
+        std::unique_ptr<idx_t[]> list_ids;
+        init_result(this->nprobe, list_simi.get(), list_ids.get());
+    }
 }
 
 // 其他查询方法的实现
