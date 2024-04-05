@@ -11,7 +11,7 @@ namespace tribase {
 Clustering::Clustering(size_t d, size_t nlist, const ClusteringParameters& cp)
     : d(d), nlist(nlist), cp(cp), centroids(nlist * d, 0.0f) {}
 
-void Clustering::train(size_t n, float* candidate_codes) {
+void Clustering::train(size_t n, const float* candidate_codes) {
     float* sampled_codes = nullptr;
     subsample_training_set(n, candidate_codes, sampled_codes);
 
@@ -33,7 +33,7 @@ void Clustering::train(size_t n, float* candidate_codes) {
     }
 }
 
-void Clustering::subsample_training_set(size_t& n, float* candidate_codes, float*& sampled_codes) {
+void Clustering::subsample_training_set(size_t& n, const float* candidate_codes, float*& sampled_codes) {
     size_t max_samples = nlist * cp.max_points_per_centroid;
     if (n <= max_samples) {
         // 如果数据点数量小于或等于最大样本数，不需要采样
