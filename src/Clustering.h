@@ -24,8 +24,8 @@ struct ClusteringParameters {
 class Clustering {
 public:
     Clustering(size_t d, size_t nlist, const ClusteringParameters& cp = ClusteringParameters());
-    void train(size_t n, std::unique_ptr<float[]> &candidate_codes);
-
+    // 更新train方法的签名，使candidate_codes为const引用
+    void train(size_t n, const std::unique_ptr<float[]> &candidate_codes);
     std::unique_ptr<float[]> get_centroids() const;
 
 private:
@@ -35,7 +35,8 @@ private:
 
     std::vector<float> centroids;
 
-    void subsample_training_set(size_t& n, std::unique_ptr<float[]> &candidate_codes);
+    // 更新subsample_training_set方法的签名，添加一个用于存储采样数据的参数
+    void subsample_training_set(size_t& n, const std::unique_ptr<float[]> &candidate_codes, std::unique_ptr<float[]> &sampled_codes);
     void initialize_centroids(size_t n, std::unique_ptr<float[]> &candidate_codes);
     void update_centroids(size_t n, std::unique_ptr<float[]> &candidate_codes);
     void apply_centroid_perturbations();
