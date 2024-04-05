@@ -6,8 +6,93 @@
 #include <memory>
 #include <stdexcept>
 #include <vector>
+#include <fstream>
+#include <cassert>
+#include <iostream>
 
 namespace tribase {
+
+
+std::vector<std::vector<float>> loadFvecs(const std::string& filePath, std::pair<int, int> bounds = {1, 0}) {
+    std::ifstream file(filePath, std::ios::binary);
+    if (!file.is_open()) {
+        std::cerr << "Failed to open file: " << filePath << std::endl;
+        return {};
+    }
+
+    // 读取向量的维度
+    int d;
+    file.read(reinterpret_cast<char*>(&d), sizeof(int));
+
+    // 计算每个向量的大小（包括维度信息）
+    int vecSizeof = 4 + d * 4; // int + d * float
+
+    // 移动到文件末尾获取文件大小，计算向量数量
+    file.seekg(0, std::ios::end);
+    int fileSize = file.tellg();
+    int bmax = fileSize / vecSizeof;
+
+    int a = bounds.first;
+    int b = (bounds.second == 0) ? bmax : bounds.second;
+
+    assert(a >= 1 && b <= bmax && b >= a);
+
+    int n = b - a + 1; // 实际读取的向量数量
+    std::vector<std::vector<float>> vectors(n, std::vector<float>(d));
+
+    // 移动到起始位置
+    file.seekg((a - 1) * vecSizeof, std::ios::beg);
+
+    // 读取向量
+    for (int i = 0; i < n; ++i) {
+        file.seekg(4, std::ios::cur); // 跳过向量维度
+        file.read(reinterpret_cast<char*>(vectors[i].data()), d * sizeof(float));
+    }
+
+    return vectors;
+}
+
+std::vector<std::vector<uint8_t>> loadBvecs(const std::string& filePath, std::pair<int, int> bounds = {1, 0}) {
+    std::ifstream file(filePath, std::ios::binary);
+    if (!file.is_open()) {
+        std::cerr << "Failed to open file: " << filePath << std::endl;
+        return {};
+    }
+
+    // 移动到文件末尾获取文件大小
+    file.seekg(0, std::ios::end);
+    int fileSize = file.tellg();
+    // 回到文件开头
+    file.seekg(0, std::ios::beg);
+
+    // 读取向量的维度
+    int d;
+    file.read(reinterpret_cast<char*>(&d), sizeof(int));
+    // 计算每个向量的大小（包括维度信息）
+    int vecSizeof = 4 + d; // int + d * uint8_t
+
+    // 计算向量数量
+    int bmax = (fileSize - 4) / vecSizeof; // 减去初始的维度信息
+
+    int a = bounds.first;
+    int b = (bounds.second == 0) ? bmax : bounds.second;
+
+    assert(a >= 1 && b <= bmax && b >= a);
+
+    int n = b - a + 1; // 实际读取的向量数量
+    std::vector<std::vector<uint8_t>> vectors(n, std::vector<uint8_t>(d));
+
+    // 移动到起始位置
+    file.seekg(4 + (a - 1) * vecSizeof, std::ios::beg); // 跳过初始的维度信息
+
+    // 读取向量
+    for (int i = 0; i < n; ++i) {
+        file.seekg(4, std::ios::cur); // 跳过每个向量前的维度信息
+        file.read(reinterpret_cast<char*>(vectors[i].data()), d * sizeof(uint8_t));
+    }
+
+    return vectors;
+}
 
 // A class for measuring execution time
 class Stopwatch {
