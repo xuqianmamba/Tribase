@@ -2,16 +2,18 @@
 #define UTILS_H
 
 #include <chrono>
-#include <vector>
 #include <cmath>
+#include <stdexcept>
+#include <vector>
 
 namespace tribase {
 
 // A class for measuring execution time
 class Stopwatch {
-public:
+   public:
     // Constructor initializes the start time
-    Stopwatch() : start(std::chrono::high_resolution_clock::now()) {}
+    Stopwatch()
+        : start(std::chrono::high_resolution_clock::now()) {}
 
     // Resets the start time to the current time
     void reset() {
@@ -24,7 +26,7 @@ public:
         return std::chrono::duration<double, std::milli>(end - start).count();
     }
 
-private:
+   private:
     // The start time
     std::chrono::time_point<std::chrono::high_resolution_clock> start;
 };
@@ -77,6 +79,6 @@ float calculateCosineSimilarity(const std::vector<float>& vec1, const std::vecto
     return dotProduct / (magnitude1 * magnitude2);
 }
 
-} // namespace tribase
+}  // namespace tribase
 
-#endif // UTILS_H
+#endif  // UTILS_H
