@@ -196,8 +196,9 @@ void Index::add(size_t n, const float* codes) {
 
 #pragma omp parallel for
         for (size_t listid = 0; listid < nlist; listid++) {
-            const float* xb = lists[listid].get_candidate_codes();
-            size_t nb = lists[listid].get_list_size();
+            IVF& list = lists[listid];
+            const float* xb = list.get_candidate_codes();
+            size_t nb = list.get_list_size();
 
             size_t this_sub_nlist_L2 = std::min(sub_nlist, (nb + SUB_LIST_SIZE - 1) / SUB_LIST_SIZE);
             size_t this_sub_nlist_cos = std::min(std::max(1ul, static_cast<size_t>(sub_nlist)), static_cast<size_t>((nb + SUB_LIST_SIZE - 1) / SUB_LIST_SIZE));
@@ -227,14 +228,26 @@ void Index::add(size_t n, const float* codes) {
                 Index sub_index(d, this_sub_nlist_L2, this_sub_nprobe_L2, MetricType::METRIC_L2, OptLevel::OPT_NONE, sub_k);
                 sub_index.train(nb, norm_xb.get());
                 sub_index.add(nb, norm_xb.get());
-                sub_index.search(nb, norm_xb.get(), sub_k, lists[listid].sub_nearest_L2_dis.get(), lists[listid].sub_nearest_L2_id.get());
+                sub_index.search(nb, norm_xb.get(), sub_k, list.sub_nearest_L2_dis.get(), list.sub_nearest_L2_id.get());
             }
 
             if (opt_level & OptLevel::OPT_SUBNN_IP) {
                 Index sub_index(d, this_sub_nlist_cos, this_sub_nprobe_cos, MetricType::METRIC_IP, OptLevel::OPT_NONE, sub_k);
                 sub_index.train(nb, norm_xb.get());
                 sub_index.add(nb, norm_xb.get());
-                sub_index.search(nb, norm_xb.get(), sub_k, lists[listid].sub_nearest_IP_dis.get(), lists[listid].sub_nearest_IP_id.get());
+                sub_index.search(nb, norm_xb.get(), sub_k, list.sub_nearest_IP_dis.get(), list.sub_nearest_IP_id.get());
+
+                // -x
+                for (size_t j = 0; j < nb * d; j++) {
+                    norm_xb[j] = -norm_xb[j];
+                }
+
+                sub_index.search(nb, norm_xb.get(), sub_k, list.sub_farest_IP_dis.get(), list.sub_farest_IP_id.get());
+
+                // -dis
+                for (size_t j = 0; j < nb; j++) {
+                    list.sub_farest_IP_dis[j] = -list.sub_farest_IP_dis[j];
+                }
             }
         }
     }
