@@ -129,7 +129,7 @@ void Clustering::initialize_centroids(size_t n, const float* sampled_codes) {
     std::default_random_engine generator(cp.seed);
     std::uniform_int_distribution<size_t> uniform_dist(0, n - 1);
 
-    // 随机选择第一个质心
+    
     size_t first_index = uniform_dist(generator);
     chosen_indices.push_back(first_index);
     centroids.assign(sampled_codes + first_index * d, sampled_codes + (first_index + 1) * d);
@@ -138,7 +138,7 @@ void Clustering::initialize_centroids(size_t n, const float* sampled_codes) {
         std::vector<double> distances(n);
         double total_distance = 0.0;
 
-        // 计算到最近质心的距离的平方
+        
         for (size_t j = 0; j < n; ++j) {
             double min_dist = std::numeric_limits<double>::max();
             for (size_t idx : chosen_indices) {
@@ -153,7 +153,7 @@ void Clustering::initialize_centroids(size_t n, const float* sampled_codes) {
             total_distance += min_dist;
         }
 
-        // 根据距离的平方选择下一个质心
+        
         std::uniform_real_distribution<double> dist(0.0, total_distance);
         double threshold = dist(generator);
         double sum = 0.0;
@@ -292,8 +292,8 @@ void Clustering::initialize_centroids(size_t n, const float* sampled_codes) {
 //     apply_centroid_perturbations();
 // }
 void Clustering::update_centroids(size_t n, const float* sampled_codes) {
-    Eigen::Map<const Eigen::MatrixXf> codes(sampled_codes, d, n); // 将原始数据映射为Eigen矩阵
-    Eigen::Map<Eigen::MatrixXf> centers(centroids.data(), d, nlist); // 将聚类中心映射为Eigen矩阵
+    Eigen::Map<const Eigen::MatrixXf> codes(sampled_codes, d, n); 
+    Eigen::Map<Eigen::MatrixXf> centers(centroids.data(), d, nlist); 
 
     std::vector<size_t> counts(nlist, 0);
     Eigen::MatrixXf new_centroids = Eigen::MatrixXf::Zero(d, nlist);
@@ -303,7 +303,7 @@ void Clustering::update_centroids(size_t n, const float* sampled_codes) {
         float min_dist = std::numeric_limits<float>::max();
 
         for (size_t j = 0; j < nlist; ++j) {
-            // 使用Eigen的向量化操作计算距离的平方
+            
             float dist = (centers.col(j) - codes.col(i)).squaredNorm();
             if (dist < min_dist) {
                 min_dist = dist;
@@ -312,11 +312,11 @@ void Clustering::update_centroids(size_t n, const float* sampled_codes) {
         }
 
         counts[closest_centroid]++;
-        // 使用Eigen的向量化操作更新新的聚类中心
+        
         new_centroids.col(closest_centroid) += codes.col(i);
     }
 
-    // 使用Eigen的向量化操作计算新的聚类中心的平均位置
+    
     for (size_t j = 0; j < nlist; ++j) {
         if (counts[j] > 0) {
             centers.col(j) = new_centroids.col(j) / counts[j];
