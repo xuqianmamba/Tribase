@@ -1,7 +1,7 @@
 #include "IVF.h"
 
 namespace tribase {
-IVF::IVF(size_t listSize = 0, size_t d = 0, size_t subK = 0)
+IVF::IVF(size_t listSize, size_t d, size_t subK)
     : list_size(listSize),
       d(d),
       sub_k(subK),

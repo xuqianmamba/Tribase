@@ -50,6 +50,8 @@ std::unique_ptr<IVFScanBase> Index::get_scaner(MetricType metric, OptLevel opt_l
                 return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_TRI_SUBNN_IP>(d, k));
             case OptLevel::OPT_ALL:
                 return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_ALL>(d, k));
+            default:
+                throw std::runtime_error("Unsupported opt_level");
         }
     } else {
         switch (opt_level) {
@@ -67,6 +69,8 @@ std::unique_ptr<IVFScanBase> Index::get_scaner(MetricType metric, OptLevel opt_l
                 return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_TRI_SUBNN_IP>(d, k));
             case OptLevel::OPT_ALL:
                 return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_ALL>(d, k));
+            default:
+                throw std::runtime_error("Unsupported opt_level");
         }
     }
 };
@@ -111,7 +115,7 @@ void Index::add(size_t n, const float* codes) {
         int tid = omp_get_thread_num();
 
         for (size_t i = 0; i < n; i++) {
-            size_t list_id = listidcandicates[i];
+            int list_id = listidcandicates[i];
             if (list_id % nt == tid) {
                 size_t list_size = list_sizes[list_id];
                 lists[list_id].candidate_id[list_size] = i;
@@ -147,15 +151,14 @@ void Index::add(size_t n, const float* codes) {
         if (opt_level & OptLevel::OPT_SUBNN_L2) {
             target_add += n;
         }
-        const size_t ADD_BATCH_SIZE = 10000;
+        // const size_t ADD_BATCH_SIZE = 10000;
 
         double train_elapsed = 0;
         double add_elapsed = 0;
         double search_elapsed = 0;
         double log_interval = 2;
 
-        auto running_log = [&]() -> void {
-            auto now = std::chrono::system_clock::now();
+        [[maybe_unused]] auto running_log = [&]() -> void {
             if (logwatch.elapsedSeconds() > log_interval || total_add == target_add) {
                 logwatch.reset();
                 printf("add: %.3f%%    build: %.2f%%\n", 100.0 * total_add / target_add, 100.0 * total_processd / nlist);
@@ -173,7 +176,7 @@ void Index::add(size_t n, const float* codes) {
                 float sub_recall_l2 = total_sub_count_l2 ? 100.0 * total_sub_recall_l2 / total_sub_count_l2 : 0;
                 float sub_recall_cos_point_10 = total_sub_count_cos ? 1000.0 * total_sub_recall_cos_point_10 / total_sub_count_cos : 0;
                 float sub_recall_l2_point_10 = total_sub_count_l2 ? 1000.0 * total_sub_recall_l2_point_10 / total_sub_count_l2 : 0;
-                printf("Recall    cos 1/10: %.2f%%    cos: %.2f%%    l2 1/10: %.2f%%    l2: %.2f%%    %d/%d\n",
+                printf("Recall    cos 1/10: %.2f%%    cos: %.2f%%    l2 1/10: %.2f%%    l2: %.2f%%    %ld/%ld\n",
                        sub_recall_cos_point_10,
                        sub_recall_cos,
                        sub_recall_l2_point_10,
@@ -183,7 +186,7 @@ void Index::add(size_t n, const float* codes) {
             }
         };
 
-        auto end_log = [&]() -> void {
+        [[maybe_unused]] auto end_log = [&]() -> void {
             double total_elapsed = train_elapsed + add_elapsed + search_elapsed;
             printf("add: 100.0%%    build: 100.0%%\n");
             printf("train: %.2f (%.2f%%)    add: %.2f    search: %.2f    total: %.2f\n",
@@ -299,7 +302,7 @@ void Index::single_thread_search(size_t n, const float* queries, size_t k, float
                     }
                 }
 
-                for (size_t ii = list_size - 1; ii >= 0; ii--) {
+                for (int64_t ii = list_size - 1; ii >= 0; ii--) {
                     float tmp_large = sqrt_simi + sqrt_centroid2query;
                     tmp_large *= tmp_large;
                     if (tmp_large < candidate2centroid[ii]) {
@@ -339,13 +342,13 @@ void Index::search(size_t n, const float* queries, size_t k, float* distances, i
     std::vector<Stats> stats(nt);
 
 #pragma omp parallel for num_threads(nt)
-    for (int i = 0; i < nt; i++) {
+    for (size_t i = 0; i < nt; i++) {
         size_t start = i * batch_size;
         size_t end = std::min(start + batch_size, n);
         single_thread_search(end - start, queries + start * d, k, distances + start * k, labels + start * k, &stats[i]);
     }
 
-    Stats total_stats = mergeStats(stats);
+    [[maybe_unused]] Stats total_stats = mergeStats(stats);
 }
 
 }  // namespace tribase

@@ -29,13 +29,13 @@ class Index {
    private:
     size_t d;
     size_t nlist;
+    size_t nprobe;
     MetricType metric;
     OptLevel opt_level;
 
     size_t sub_k;
     size_t sub_nlist;
     size_t sub_nprobe;
-    size_t nprobe;
     std::unique_ptr<IVF[]> lists;
     std::unique_ptr<float[]> centroid_codes;
     std::unique_ptr<idx_t[]> centroid_ids;

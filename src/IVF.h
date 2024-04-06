@@ -25,7 +25,7 @@ class IVF {
 
    public:
     // Constructor
-    IVF(size_t listSize, size_t d, size_t subK);
+    IVF(size_t listSize = 0, size_t d = 0, size_t subK = 0);
 
     // Destructor
     ~IVF();
@@ -41,9 +41,9 @@ class IVF {
     void reset(size_t listSize, size_t d, size_t subK);
 
     // Additional methods to manipulate the data can be added here
-    const size_t get_list_size() const { return list_size; }
-    const size_t get_d() const { return d; }
-    const size_t get_sub_k() const { return sub_k; }
+    size_t get_list_size() const { return list_size; }
+    size_t get_d() const { return d; }
+    size_t get_sub_k() const { return sub_k; }
     const float* get_codes() const { return codes.get(); }
     const float* get_codes(size_t i) const { return codes.get() + i * d; }
     const size_t* get_ids() const { return ids.get(); }

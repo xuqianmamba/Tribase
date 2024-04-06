@@ -23,7 +23,7 @@ inline void heap_init(size_t k, float* bh_val, idx_t* bh_ids) {
     }
 }
 
-void init_result(MetricType metric, size_t size, float* dis, idx_t* ids) {
+inline void init_result(MetricType metric, size_t size, float* dis, idx_t* ids) {
     if (metric == MetricType::METRIC_L2) {
         heap_init<MetricType::METRIC_L2>(size, dis, ids);
     } else {
@@ -71,4 +71,4 @@ inline void heap_replace_top(size_t k, float* bh_val, idx_t* bh_ids, float val, 
 
 }  // namespace tribase
 
-#endif // TRIBASE_HEAP_HPP
+#endif  // TRIBASE_HEAP_HPP
