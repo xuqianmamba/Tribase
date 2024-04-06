@@ -30,8 +30,8 @@ int main(int argc, char* argv[]) {
     auto [base, nb, d] = loadFvecs(base_file);
     auto [query, nq, _] = loadFvecs(query_file);
 
-    // Index index(d, nlist, nprobe, MetricType::METRIC_L2, OptLevel::OPT_SUBNN_IP);
-    Index index(d, nlist, nprobe, MetricType::METRIC_L2, OptLevel::OPT_NONE);
+    Index index(d, nlist, nprobe, MetricType::METRIC_L2, OptLevel::OPT_SUBNN_IP);
+    // Index index(d, nlist, nprobe, MetricType::METRIC_L2, OptLevel::SUBNN_IP);
     index.train(nb, base.get());
     index.add(nb, base.get());
 

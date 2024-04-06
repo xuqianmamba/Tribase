@@ -339,12 +339,12 @@ void Index::add(size_t n, const float* codes) {
                 for (size_t j = 0; j < nb * d; j++) {
                     norm_xb[j] = -norm_xb[j];
                 }
-
+                
                 watch.reset();
                 sub_index.search(nb, norm_xb, sub_k, list.sub_farest_IP_dis.get(), list.sub_farest_IP_id.get());
                 search_elapsed += watch.elapsedSeconds(true);
 
-                for (size_t j = 0; j < nb; j++) {
+                for (size_t j = 0; j < sub_k; j++) {
                     list.sub_farest_IP_dis[j] = -list.sub_farest_IP_dis[j];
                 }
             }
