@@ -7,13 +7,15 @@
 #include "heap.hpp"
 
 #define SUB_LIST_SIZE 8ul
-#define COS_SUB_RATIO 1.5
+#define IP_SUB_RATIO 1.5
+#define RECALL_TEST_RATIO 0.1
 
 namespace tribase {
 
 Index::Index(size_t d, size_t nlist, size_t nprobe, MetricType metric, OptLevel opt_level, size_t sub_k, size_t sub_nlist, size_t sub_nprobe)
     : d(d), nlist(nlist), nprobe(nprobe), metric(metric), opt_level(opt_level), sub_k(sub_k), sub_nlist(sub_nlist), sub_nprobe(sub_nprobe) {
     lists = std::make_unique<IVF[]>(nlist);
+    // lists.resize(nlist);
     centroid_codes = std::make_unique<float[]>(nlist * d);
     centroid_ids = std::make_unique<idx_t[]>(nprobe);
     std::iota(centroid_ids.get(), centroid_ids.get() + nlist, 0);
@@ -79,7 +81,12 @@ void Index::single_thread_nearest_cluster_search(size_t n, const float* queries,
     std::unique_ptr<IVFScanBase> scaner_quantizer = get_scaner(metric, OPT_NONE, sub_k);
     for (size_t i = 0; i < n; i++) {
         scaner_quantizer->set_query(queries + i * d);
-        scaner_quantizer->lite_scan_codes(nlist, centroid_codes.get(), centroid_ids.get(), distances + i, labels + i);
+        scaner_quantizer->lite_scan_codes(nlist,
+                                          centroid_codes.get(),
+                                          reinterpret_cast<const size_t*>(centroid_ids.get()),
+                                          distances + i,
+                                          labels + i);
+        // no need to sort result, because only one result
     }
 }
 
@@ -93,7 +100,9 @@ void Index::add(size_t n, const float* codes) {
     for (size_t i = 0; i < nt; i++) {
         size_t start = i * batch_size;
         size_t end = std::min(start + batch_size, n);
-        single_thread_nearest_cluster_search(end - start, codes + start * d, candicate2centroid.get() + start, listidcandicates.get() + start);
+        if (start < end) {
+            single_thread_nearest_cluster_search(end - start, codes + start * d, candicate2centroid.get() + start, listidcandicates.get() + start);
+        }
     }
 
     size_t list_sizes[nlist];
@@ -108,6 +117,8 @@ void Index::add(size_t n, const float* codes) {
     for (size_t i = 0; i < nlist; i++) {
         lists[i].reset(list_sizes[i], d, sub_k);
     }
+
+    std::fill_n(list_sizes, nlist, 0);
 
 #pragma omp parallel
     {
@@ -127,6 +138,20 @@ void Index::add(size_t n, const float* codes) {
         }
     }
 
+    // check
+
+    // for (size_t i = 0; i < nlist; i++) {
+    //     if (list_sizes[i] != lists[i].get_list_size()) {
+    //         throw std::runtime_error("list size not match");
+    //     }
+    //     for (size_t j = 0; j < list_sizes[i]; j++) {
+    //         for (size_t k = 0; k < d; k++) {
+    //             printf("%f ", lists[i].get_candidate_codes(j)[k]);
+    //         }
+    //         printf("\n");
+    //     }
+    // }
+
     {
         size_t total_processd = 0;
         size_t total_add = 0;
@@ -135,13 +160,11 @@ void Index::add(size_t n, const float* codes) {
         size_t true_train_count = 0;
         size_t all_train_count = 0;
 
-        size_t total_sub_count_cos = 0;
-        size_t total_sub_recall_cos = 0;
+        size_t total_sub_count_ip = 0;
+        size_t total_sub_recall_ip = 0;
         size_t total_sub_count_l2 = 0;
         size_t total_sub_recall_l2 = 0;
-        // size_t total_sub_count_cos_point_10 = 0;
-        size_t total_sub_recall_cos_point_10 = 0;
-        // size_t total_sub_count_l2_point_10 = 0;
+        size_t total_sub_recall_ip_point_10 = 0;
         size_t total_sub_recall_l2_point_10 = 0;
 
         Stopwatch logwatch;
@@ -161,7 +184,7 @@ void Index::add(size_t n, const float* codes) {
         [[maybe_unused]] auto running_log = [&]() -> void {
             if (logwatch.elapsedSeconds() > log_interval || total_add == target_add) {
                 logwatch.reset();
-                printf("add: %.3f%%    build: %.2f%%\n", 100.0 * total_add / target_add, 100.0 * total_processd / nlist);
+                printf("add: %.3f%%    build: %.2f%%\n", target_add ? 100.0 * total_add / target_add : 0, 100.0 * total_processd / nlist);
                 double total_elapsed = train_elapsed + add_elapsed + search_elapsed;
                 double train_percent = 100.0 * train_elapsed / total_elapsed;
                 double add_percent = 100.0 * add_elapsed / total_elapsed;
@@ -172,13 +195,13 @@ void Index::add(size_t n, const float* codes) {
                        add_percent,
                        search_percent,
                        total_elapsed);
-                float sub_recall_cos = total_sub_count_cos ? 100.0 * total_sub_recall_cos / total_sub_count_cos : 0;
+                float sub_recall_ip = total_sub_count_ip ? 100.0 * total_sub_recall_ip / total_sub_count_ip : 0;
                 float sub_recall_l2 = total_sub_count_l2 ? 100.0 * total_sub_recall_l2 / total_sub_count_l2 : 0;
-                float sub_recall_cos_point_10 = total_sub_count_cos ? 1000.0 * total_sub_recall_cos_point_10 / total_sub_count_cos : 0;
+                float sub_recall_ip_point_10 = total_sub_count_ip ? 1000.0 * total_sub_recall_ip_point_10 / total_sub_count_ip : 0;
                 float sub_recall_l2_point_10 = total_sub_count_l2 ? 1000.0 * total_sub_recall_l2_point_10 / total_sub_count_l2 : 0;
-                printf("Recall    cos 1/10: %.2f%%    cos: %.2f%%    l2 1/10: %.2f%%    l2: %.2f%%    %ld/%ld\n",
-                       sub_recall_cos_point_10,
-                       sub_recall_cos,
+                printf("Recall    ip 1/10: %.2f%%    ip: %.2f%%    l2 1/10: %.2f%%    l2: %.2f%%    %ld/%ld\n",
+                       sub_recall_ip_point_10,
+                       sub_recall_ip,
                        sub_recall_l2_point_10,
                        sub_recall_l2,
                        sub_nprobe,
@@ -204,61 +227,120 @@ void Index::add(size_t n, const float* codes) {
             size_t nb = list.get_list_size();
 
             size_t this_sub_nlist_L2 = std::min(sub_nlist, (nb + SUB_LIST_SIZE - 1) / SUB_LIST_SIZE);
-            size_t this_sub_nlist_cos = std::min(std::max(1ul, static_cast<size_t>(sub_nlist)), static_cast<size_t>((nb + SUB_LIST_SIZE - 1) / SUB_LIST_SIZE));
             size_t this_sub_nprobe_L2 = std::min(std::max(1ul, static_cast<size_t>(1.0 * this_sub_nlist_L2 * sub_nprobe / sub_nlist)), this_sub_nlist_L2);
-            size_t this_sub_nprobe_cos = std::min(std::max(1ul, static_cast<size_t>(1.0 * this_sub_nlist_cos * sub_nprobe / sub_nlist * COS_SUB_RATIO)), this_sub_nlist_cos);
 
-            std::unique_ptr<float[]> norm_xb = std::make_unique<float[]>(nb * d);
+            size_t this_sub_nlist_IP = std::min(std::max(1ul, static_cast<size_t>(sub_nlist)), static_cast<size_t>((nb + SUB_LIST_SIZE - 1) / SUB_LIST_SIZE));
+            size_t this_sub_nprobe_IP = std::min(std::max(1ul, static_cast<size_t>(1.0 * this_sub_nlist_IP * sub_nprobe / sub_nlist * IP_SUB_RATIO)), this_sub_nlist_IP);
+
             const float* centroid_code = centroid_codes.get() + listid * d;
-
-            for (size_t j = 0; j < nb; j++) {
-                float norm_xb_value = 0;
-                const float* x = xb + j * d;
-                for (size_t k = 0; k < d; k++) {
-                    norm_xb[j * d + k] = (x[k] - centroid_code[k]);
-                    norm_xb_value += norm_xb[j * d + k] * norm_xb[j * d + k];
-                }
-
-                norm_xb_value = sqrt(norm_xb_value);
-                if (norm_xb_value > 0) {
-                    for (size_t k = 0; k < d; k++) {
-                        norm_xb[j * d + k] /= norm_xb_value;
-                    }
-                }
-            }
 
             if (opt_level & OptLevel::OPT_SUBNN_L2) {
                 Index sub_index(d, this_sub_nlist_L2, this_sub_nprobe_L2, MetricType::METRIC_L2, OptLevel::OPT_NONE, sub_k);
-                sub_index.train(nb, norm_xb.get());
-                sub_index.add(nb, norm_xb.get());
-                sub_index.search(nb, norm_xb.get(), sub_k, list.sub_nearest_L2_dis.get(), list.sub_nearest_L2_id.get());
+                Stopwatch watch;
+                sub_index.train(nb, xb);
+                train_elapsed += watch.elapsedSeconds(true);
+                sub_index.add(nb, xb);
+                add_elapsed += watch.elapsedSeconds(true);
+                sub_index.search(nb, xb, sub_k, list.sub_nearest_L2_dis.get(), list.sub_nearest_L2_id.get());
+                search_elapsed += watch.elapsedSeconds(true);
+
+                if (true) {
+                    size_t recall_nb = static_cast<size_t>(1.0 * nb * RECALL_TEST_RATIO / sub_nlist * sub_nprobe);
+                    std::unique_ptr<float[]> recall_dis = std::make_unique<float[]>(recall_nb * sub_k);
+                    std::unique_ptr<idx_t[]> recall_id = std::make_unique<idx_t[]>(recall_nb * sub_k);
+                    sub_index.nprobe = sub_index.nlist;
+                    sub_index.search(recall_nb, xb, sub_k, recall_dis.get(), recall_id.get());
+                    float top_recall_dis = recall_dis[sub_k - 1];
+                    float top_recall_dis_point_10 = recall_dis[(sub_k + 9) / 10 - 1];
+
+                    for (size_t j = 0; j < recall_nb; j++) {
+                        for (size_t k = 0; k < sub_k; k++) {
+                            if (list.sub_nearest_L2_dis[j] < top_recall_dis) {
+                                total_sub_recall_l2++;
+                                if (list.sub_nearest_L2_dis[j] < top_recall_dis_point_10) {
+                                    total_sub_recall_l2_point_10++;
+                                }
+                            }
+                        }
+                    }
+                    total_sub_count_l2 += recall_nb;
+                }
             }
 
             if (opt_level & OptLevel::OPT_SUBNN_IP) {
-                Index sub_index(d, this_sub_nlist_cos, this_sub_nprobe_cos, MetricType::METRIC_IP, OptLevel::OPT_NONE, sub_k);
-                sub_index.train(nb, norm_xb.get());
-                sub_index.add(nb, norm_xb.get());
-                sub_index.search(nb, norm_xb.get(), sub_k, list.sub_nearest_IP_dis.get(), list.sub_nearest_IP_id.get());
+                std::unique_ptr<float[]> norm_xb_u = std::make_unique<float[]>(nb * d);
+                float* norm_xb = norm_xb_u.get();
+                for (size_t j = 0; j < nb; j++) {
+                    float norm_xb_value = 0;
+                    const float* x = xb + j * d;
+                    for (size_t k = 0; k < d; k++) {
+                        norm_xb[j * d + k] = (x[k] - centroid_code[k]);
+                        norm_xb_value += norm_xb[j * d + k] * norm_xb[j * d + k];
+                    }
 
-                // -x
+                    norm_xb_value = sqrt(norm_xb_value);
+                    if (norm_xb_value > 0) {
+                        for (size_t k = 0; k < d; k++) {
+                            norm_xb[j * d + k] /= norm_xb_value;
+                        }
+                    }
+                }
+                Index sub_index(d, this_sub_nlist_IP, this_sub_nprobe_IP, MetricType::METRIC_IP, OptLevel::OPT_NONE, sub_k);
+                Stopwatch watch;
+                sub_index.train(nb, norm_xb);
+                train_elapsed += watch.elapsedSeconds(true);
+                sub_index.add(nb, norm_xb);
+                add_elapsed += watch.elapsedSeconds(true);
+                sub_index.search(nb, norm_xb, sub_k, list.sub_nearest_IP_dis.get(), list.sub_nearest_IP_id.get());
+                search_elapsed += watch.elapsedSeconds(true);
+
+                if (true) {
+                    size_t recall_nb = static_cast<size_t>(1.0 * nb * RECALL_TEST_RATIO / sub_nlist * sub_nprobe);
+                    std::unique_ptr<float[]> recall_dis = std::make_unique<float[]>(recall_nb * sub_k);
+                    std::unique_ptr<idx_t[]> recall_id = std::make_unique<idx_t[]>(recall_nb * sub_k);
+                    sub_index.nprobe = sub_index.nlist;
+                    sub_index.search(recall_nb, norm_xb, sub_k, recall_dis.get(), recall_id.get());
+                    float top_recall_dis = recall_dis[sub_k - 1];
+                    float top_recall_dis_point_10 = recall_dis[(sub_k + 9) / 10 - 1];
+
+                    for (size_t j = 0; j < recall_nb; j++) {
+                        for (size_t k = 0; k < sub_k; k++) {
+                            if (list.sub_nearest_L2_dis[j] < top_recall_dis) {
+                                total_sub_recall_ip++;
+                                if (list.sub_nearest_L2_dis[j] < top_recall_dis_point_10) {
+                                    total_sub_recall_ip_point_10++;
+                                }
+                            }
+                        }
+                    }
+                    total_sub_count_ip += recall_nb;
+                }
+
                 for (size_t j = 0; j < nb * d; j++) {
                     norm_xb[j] = -norm_xb[j];
                 }
 
-                sub_index.search(nb, norm_xb.get(), sub_k, list.sub_farest_IP_dis.get(), list.sub_farest_IP_id.get());
+                watch.reset();
+                sub_index.search(nb, norm_xb, sub_k, list.sub_farest_IP_dis.get(), list.sub_farest_IP_id.get());
+                search_elapsed += watch.elapsedSeconds(true);
 
-                // -dis
                 for (size_t j = 0; j < nb; j++) {
                     list.sub_farest_IP_dis[j] = -list.sub_farest_IP_dis[j];
                 }
             }
-        }
-    }
 
-}  // namespace tribase
+#pragma omp critical
+            {
+                total_processd++;
+                running_log();
+            }
+        }
+        end_log();
+    }
+}
 
 void Index::single_thread_search(size_t n, const float* queries, size_t k, float* distances, idx_t* labels, Stats* stats) {
-    std::unique_ptr<IVFScanBase> scaner_quantizer = get_scaner(metric, OPT_NONE, sub_k);
+    std::unique_ptr<IVFScanBase> scaner_quantizer = get_scaner(metric, OPT_NONE, nprobe);
     std::unique_ptr<IVFScanBase> scaner = get_scaner(metric, opt_level, k);
 
     std::unique_ptr<float[]> centroid2queries = std::make_unique<float[]>(n * nprobe);
@@ -270,17 +352,22 @@ void Index::single_thread_search(size_t n, const float* queries, size_t k, float
     float* centroids2query = centroid2queries.get();
     idx_t* listids = listidqueries.get();
 
+    assert(scaner->k == k);
+
     for (size_t i = 0; i < n; i++) {
         scaner_quantizer->set_query(queries + i * d);
         scaner->set_query(queries + i * d);
-        scaner_quantizer->lite_scan_codes(nlist, centroid_codes.get(), centroid_ids.get(), centroids2query, listids);
+        scaner_quantizer->lite_scan_codes(nlist,
+                                          centroid_codes.get(),
+                                          reinterpret_cast<const size_t*>(centroid_ids.get()),
+                                          centroids2query,
+                                          listids);
+        sort_result(metric, nprobe, centroids2query, listids);
         for (size_t j = 0; j < nprobe; j++) {
             IVF& list = lists[listids[j]];
             float centroid2query = centroids2query[j];
             size_t list_size = list.get_list_size();
 
-            const float* codes = list.get_codes();
-            const idx_t* ids = reinterpret_cast<const idx_t*>(list.get_ids());
             std::unique_ptr<bool[]> if_skip = std::make_unique<bool[]>(list_size);
 
             size_t skip_count = 0;
@@ -321,12 +408,13 @@ void Index::single_thread_search(size_t n, const float* queries, size_t k, float
                 stats->total_count += list_size;
             }
 
-            scaner->scan_codes(scan_begin, scan_end, list_size, codes, ids, centroid2query, list.get_candidate2centroid(),
+            scaner->scan_codes(scan_begin, scan_end, list_size, list.get_candidate_codes(), list.get_candidate_id(), centroid2query, list.get_candidate2centroid(),
                                list.get_sqrt_candidate2centroid(), sub_k, list.get_sub_nearest_IP_id(),
                                list.get_sub_nearest_IP_dis(), list.get_sub_farest_IP_id(), list.get_sub_farest_IP_dis(),
                                list.get_sub_nearest_L2_id(), list.get_sub_nearest_L2_dis(), if_skip.get(), simi, idxi,
                                stats);
         }
+        sort_result(metric, nprobe, simi, idxi);
 
         simi += k;
         idxi += k;
@@ -336,16 +424,29 @@ void Index::single_thread_search(size_t n, const float* queries, size_t k, float
 }
 
 void Index::search(size_t n, const float* queries, size_t k, float* distances, idx_t* labels) {
+    if (nprobe > nlist) {
+        nprobe = nlist;
+    }
     init_result(metric, n * k, distances, labels);
     size_t nt = std::min(static_cast<size_t>(omp_get_max_threads()), n);
-    size_t batch_size = (n + nt - 1) / nt;
+    nt = 1;
+    size_t batch_size = n / nt;
+    size_t extra = n % nt;
     std::vector<Stats> stats(nt);
 
 #pragma omp parallel for num_threads(nt)
     for (size_t i = 0; i < nt; i++) {
-        size_t start = i * batch_size;
-        size_t end = std::min(start + batch_size, n);
-        single_thread_search(end - start, queries + start * d, k, distances + start * k, labels + start * k, &stats[i]);
+        size_t start, end;
+        if (i < extra) {
+            start = i * (batch_size + 1);
+            end = start + batch_size + 1;
+        } else {
+            start = i * batch_size + extra;
+            end = start + batch_size;
+        }
+        if (start < end) {
+            single_thread_search(end - start, queries + start * d, k, distances + start * k, labels + start * k, &stats[i]);
+        }
     }
 
     [[maybe_unused]] Stats total_stats = mergeStats(stats);

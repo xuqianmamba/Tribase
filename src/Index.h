@@ -37,6 +37,7 @@ class Index {
     size_t sub_nlist;
     size_t sub_nprobe;
     std::unique_ptr<IVF[]> lists;
+    // std::vector<IVF> lists;
     std::unique_ptr<float[]> centroid_codes;
     std::unique_ptr<idx_t[]> centroid_ids;
 };

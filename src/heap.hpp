@@ -69,6 +69,25 @@ inline void heap_replace_top(size_t k, float* bh_val, idx_t* bh_ids, float val, 
     bh_ids[i] = id;
 }
 
+template <MetricType metric = MetricType::METRIC_L2>
+inline void heap_sort(size_t k, float* bh_val, idx_t* bh_ids) {
+    for (int64_t i = k - 1; i >= 0; i--) {
+        float val = bh_val[i];
+        idx_t id = bh_ids[i];
+        bh_val[i] = bh_val[0];
+        bh_ids[i] = bh_ids[0];
+        heap_replace_top<metric>(i, bh_val, bh_ids, val, id);
+    }
+}
+
+inline void sort_result(MetricType metric, size_t size, float* dis, idx_t* ids) {
+    if (metric == MetricType::METRIC_L2) {
+        heap_sort<MetricType::METRIC_L2>(size, dis, ids);
+    } else {
+        heap_sort<MetricType::METRIC_IP>(size, dis, ids);
+    }
+}
+
 }  // namespace tribase
 
 #endif  // TRIBASE_HEAP_HPP

@@ -52,9 +52,9 @@ IVF& IVF::operator=(IVF&& other) noexcept {
 }
 
 void IVF::reset(size_t listSize, size_t d, size_t subK) {
-    list_size = listSize;
+    this->list_size = listSize;
     this->d = d;
-    sub_k = subK;
+    this->sub_k = subK;
     candidate_id = std::make_unique<size_t[]>(listSize);
     candidate_codes = std::make_unique<float[]>(listSize * d);
     candidate2centroid = std::make_unique<float[]>(listSize);

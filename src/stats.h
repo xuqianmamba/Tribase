@@ -79,7 +79,7 @@ class Stats {
     }
 };
 
-Stats mergeStats(std::vector<Stats>& stats) {
+inline Stats mergeStats(std::vector<Stats>& stats) {
     Stats merged;
     for (auto& s : stats) {
         merged.total_count += s.total_count;

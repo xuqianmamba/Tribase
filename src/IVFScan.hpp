@@ -21,7 +21,7 @@ class IVFScanBase {
 
     virtual void lite_scan_codes(size_t list_size,
                                  const float* codes,
-                                 const idx_t* ids,
+                                 const size_t* ids,
                                  float* simi,
                                  idx_t* idxi) = 0;
 
@@ -29,7 +29,7 @@ class IVFScanBase {
                             size_t scan_end,
                             size_t list_size,
                             const float* codes,
-                            const idx_t* ids,
+                            const size_t* ids,
                             const float centroid2query,
                             const float* candicate2centroid,
                             const float* sqrt_candicate2centroid,
@@ -54,7 +54,7 @@ class IVFScan : public IVFScanBase {
 
     void lite_scan_codes(size_t list_size,
                          const float* codes,
-                         const idx_t* ids,
+                         const size_t* ids,
                          float* simi,
                          idx_t* idxi) override {
         for (size_t i = 0; i < list_size; i++) {
@@ -77,7 +77,7 @@ class IVFScan : public IVFScanBase {
                     size_t scan_end,
                     [[maybe_unused]] size_t list_size,
                     const float* codes,
-                    const idx_t* ids,
+                    const size_t* ids,
                     const float centroid2query,
                     const float* candicate2centroid,
                     const float* sqrt_candicate2centroid,

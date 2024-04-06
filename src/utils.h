@@ -104,14 +104,22 @@ class Stopwatch {
     void reset() { start = std::chrono::high_resolution_clock::now(); }
 
     // Returns the elapsed time in milliseconds since the stopwatch was started or last reset
-    double elapsedMilliseconds() const {
+    double elapsedMilliseconds(bool isReset = false) {
         auto end = std::chrono::high_resolution_clock::now();
-        return std::chrono::duration<double, std::milli>(end - start).count();
+        auto ret = std::chrono::duration<double, std::milli>(end - start).count();
+        if (isReset) {
+            reset();
+        }
+        return ret;
     }
 
-    double elapsedSeconds() const {
+    double elapsedSeconds(bool isReset = false) {
         auto end = std::chrono::high_resolution_clock::now();
-        return std::chrono::duration<double>(end - start).count();
+        auto ret = std::chrono::duration<double>(end - start).count();
+        if (isReset) {
+            reset();
+        }
+        return ret;
     }
 
    private:

@@ -29,21 +29,19 @@ TEST(HeapTest, MaxHeap) {  // big top heap
         std::cout << std::endl;
     };
 
-    // output();
     heap_init<MetricType::METRIC_L2>(k, simi, idxi);
     for (int i = 0; i < n; i++) {
         if (vals[i] < simi[0]) {
             heap_replace_top<MetricType::METRIC_L2>(k, simi, idxi, vals[i], i);
         }
-        // output();
     }
+    heap_sort<MetricType::METRIC_L2>(k, simi, idxi);
 
     for (int i = 0; i < k; i++) {
         EXPECT_EQ(vals[idxi[i]], simi[i]);
     }
 
     std::sort(vals, vals + n);
-    std::sort(simi, simi + k);
     for (int i = 0; i < k; i++) {
         EXPECT_EQ(vals[i], simi[i]);
     }
@@ -74,21 +72,19 @@ TEST(HeapTest, MinHeap) {  // small top heap
         std::cout << std::endl;
     };
 
-    // output();
     heap_init<MetricType::METRIC_IP>(k, simi, idxi);
     for (int i = 0; i < n; i++) {
         if (vals[i] > simi[0]) {
             heap_replace_top<MetricType::METRIC_IP>(k, simi, idxi, vals[i], i);
         }
-        // output();
     }
+    heap_sort<MetricType::METRIC_IP>(k, simi, idxi);
 
     for (int i = 0; i < k; i++) {
         EXPECT_EQ(vals[idxi[i]], simi[i]);
     }
 
     std::sort(vals, vals + n, std::greater<float>());
-    std::sort(simi, simi + k, std::greater<float>());
     for (int i = 0; i < k; i++) {
         EXPECT_EQ(vals[i], simi[i]);
     }
