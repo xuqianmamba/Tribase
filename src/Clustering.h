@@ -1,5 +1,4 @@
-#ifndef CLUSTERING_H
-#define CLUSTERING_H
+#pragma once
 
 #include <Eigen/Dense>
 #include <memory>
@@ -10,9 +9,6 @@
 #include "utils.h"
 
 namespace tribase {
-
-enum class MetricType { L2,
-                        Angular };
 
 struct ClusteringParameters {
     int niter = 25;
@@ -26,6 +22,7 @@ class Clustering {
     Clustering(size_t d, size_t nlist, const ClusteringParameters& cp = ClusteringParameters());
     void train(size_t n, const float* candidate_codes);
     float* get_centroids() const;
+    void get_centroids(float* centroid_codes) const;
 
    private:
     size_t d;
@@ -35,11 +32,9 @@ class Clustering {
     std::vector<float> centroids;
 
     void subsample_training_set(size_t& n, const float* candidate_codes, float*& sampled_codes);
-    void initialize_centroids(size_t n, float* candidate_codes);
-    void update_centroids(size_t n, float* candidate_codes);
+    void initialize_centroids(size_t n, const float* candidate_codes);
+    void update_centroids(size_t n, const float* candidate_codes);
     void apply_centroid_perturbations();
 };
 
 }  // namespace tribase
-
-#endif  // CLUSTERING_H

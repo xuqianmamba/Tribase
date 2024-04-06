@@ -1,11 +1,17 @@
 #pragma once
 #define DEBUG
-#include <inttypes.h>
 
+#ifdef DEBUG
+#define IF_STATS if (stats)
+#else
+#define IF_STATS if (false)
+#endif
+
+#include <inttypes.h>
 #include <utility>
 
 namespace tribase {
-enum MetricType { METRIC_INNER_PRODUCT = 0,
+enum MetricType { METRIC_IP = 0,
                   METRIC_L2 };
 
 enum OptLevel {

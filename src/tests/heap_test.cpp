@@ -75,10 +75,10 @@ TEST(HeapTest, MinHeap) {  // small top heap
     };
 
     // output();
-    heap_init<MetricType::METRIC_INNER_PRODUCT>(k, simi, idxi);
+    heap_init<MetricType::METRIC_IP>(k, simi, idxi);
     for (int i = 0; i < n; i++) {
         if (vals[i] > simi[0]) {
-            heap_replace_top<MetricType::METRIC_INNER_PRODUCT>(k, simi, idxi, vals[i], i);
+            heap_replace_top<MetricType::METRIC_IP>(k, simi, idxi, vals[i], i);
         }
         // output();
     }

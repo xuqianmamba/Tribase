@@ -6,7 +6,7 @@
 
 namespace tribase {
 class IVF {
-   private:
+   public:
     size_t list_size;
     size_t d;
     size_t sub_k;

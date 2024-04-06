@@ -93,4 +93,5 @@ Stats mergeStats(std::vector<Stats>& stats) {
         merged.skip_subnn_IP_count += s.skip_subnn_IP_count;
     }
     return merged;
+}
 }  // namespace tribase

@@ -20,6 +20,14 @@ inline void heap_init(size_t k, float* bh_val, idx_t* bh_ids) {
     }
 }
 
+void init_result(MetricType metric, size_t size, float* dis, idx_t* ids) {
+    if (metric == MetricType::METRIC_L2) {
+        heap_init<MetricType::METRIC_L2>(size, dis, ids);
+    } else {
+        heap_init<MetricType::METRIC_IP>(size, dis, ids);
+    }
+}
+
 template <MetricType metric = MetricType::METRIC_L2>
 inline void heap_replace_top(size_t k, float* bh_val, idx_t* bh_ids, float val, idx_t id) {
     bh_ids--;
