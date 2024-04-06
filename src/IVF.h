@@ -48,7 +48,7 @@ class IVF {
     const float* get_codes(size_t i) const { return codes.get() + i * d; }
     const size_t* get_ids() const { return ids.get(); }
     const size_t* get_ids(size_t i) const { return ids.get() + i; }
-    const const float* get_candidate_codes() const { return candidate_codes.get(); }
+    const float* get_candidate_codes() const { return candidate_codes.get(); }
     const float* get_candidate_codes(size_t i) const { return candidate_codes.get() + i * d; }
     const size_t* get_candidate_id() const { return candidate_id.get(); }
     const size_t* get_candidate_id(size_t i) const { return candidate_id.get() + i; }

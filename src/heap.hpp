@@ -1,3 +1,6 @@
+#ifndef TRIBASE_HEAP_HPP
+#define TRIBASE_HEAP_HPP
+
 #include <limits>
 #include <queue>
 #include <utility>
@@ -67,3 +70,5 @@ inline void heap_replace_top(size_t k, float* bh_val, idx_t* bh_ids, float val, 
 }
 
 }  // namespace tribase
+
+#endif // TRIBASE_HEAP_HPP
