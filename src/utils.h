@@ -175,4 +175,26 @@ inline float calculateCosineSimilarity(const float* vec1, const float* vec2, siz
     return dotProduct / (magnitude1 * magnitude2);
 }
 
+inline void writeResultsToFile(const idx_t* labels, const float* distances, size_t nq, size_t k,std::string filePath) {
+    std::ofstream outFile(filePath);
+
+    if (!outFile.is_open()) {
+        std::cerr << "无法打开文件：" << filePath << std::endl;
+        return;
+    }
+
+    for (size_t i = 0; i < nq; ++i) {
+        for (size_t j = 0; j < k; ++j) {
+            // 先写入id，然后写入distance
+            outFile << labels[i * k + j] << " " << std::fixed << std::setprecision(6) << distances[i * k + j];
+            if (j < k - 1) {
+                outFile << " "; // 在同一行内的元素之间添加空格
+            }
+        }
+        outFile << "\n"; // 每个向量的结果结束后换行
+    }
+
+    outFile.close();
+}
+
 }  // namespace tribase

@@ -1,4 +1,6 @@
 #include <argparse/argparse.hpp>
+#include <fstream>
+#include <iomanip>
 #include <format>
 #include <iostream>
 #include <memory>
@@ -30,8 +32,8 @@ int main(int argc, char* argv[]) {
     auto [base, nb, d] = loadFvecs(base_file);
     auto [query, nq, _] = loadFvecs(query_file);
 
-    Index index(d, nlist, nprobe, MetricType::METRIC_L2, OptLevel::OPT_SUBNN_IP);
-    // Index index(d, nlist, nprobe, MetricType::METRIC_L2, OptLevel::SUBNN_IP);
+    // Index index(d, nlist, nprobe, MetricType::METRIC_L2, OptLevel::OPT_SUBNN_IP);
+    Index index(d, nlist, nprobe, MetricType::METRIC_L2, OptLevel::OPT_NONE);
     index.train(nb, base.get());
     index.add(nb, base.get());
 
@@ -42,6 +44,8 @@ int main(int argc, char* argv[]) {
     index.search(nq, query.get(), k, distances.get(), labels.get());
     std::cout << "search time: " << sw.elapsedSeconds() << "s" << std::endl;
 
+
+    writeResultsToFile(labels.get(), distances.get(), nq, k,"/home/xuqian/Triangle/Tribase/results/results.txt");
     // for (size_t i = 0; i < nq; i++) {
     //     for (size_t j = 0; j < k; j++) {
     //         std::cout << std::format("({},{})", distances[i * k + j], labels[i * k + j]) << " ";
