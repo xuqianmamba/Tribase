@@ -4,9 +4,9 @@
 using namespace tribase;
 
 int main() {
-    auto [data, n, d] = loadFvecs("../src/tests/iris.fvecs");
+    auto [data, n, d] = loadFvecs("/home/xuqian/Triangle/Tribase/src/tests/iris.fvecs");
     ClusteringParameters cp;
-    cp.niter = 10;
+    cp.niter = 25;
     cp.seed = 6666;
     cp.max_points_per_centroid = 256;
     cp.metric = MetricType::METRIC_L2;
