@@ -1,6 +1,7 @@
 #ifndef TRIBASE_HEAP_HPP
 #define TRIBASE_HEAP_HPP
 
+#include <cassert>
 #include <limits>
 #include <queue>
 #include <utility>
@@ -85,6 +86,28 @@ inline void sort_result(MetricType metric, size_t size, float* dis, idx_t* ids) 
         heap_sort<MetricType::METRIC_L2>(size, dis, ids);
     } else {
         heap_sort<MetricType::METRIC_IP>(size, dis, ids);
+    }
+}
+
+inline void sorted_check(MetricType metric, size_t size, float* dis, [[maybe_unused]] idx_t* ids) {
+    if (metric == MetricType::METRIC_L2) {
+        for (size_t i = 1; i < size; i++) {
+            if (dis[i - 1] > dis[i]) {
+                // std::cerr << "dis[i - 1] > dis[i]: " << dis[i - 1] << " > " << dis[i] << std::endl;
+                // std::cerr << "ids[i - 1]: " << ids[i - 1] << std::endl;
+                // std::cerr << "ids[i]: " << ids[i] << std::endl;
+                assert(false);
+            }
+        }
+    } else {
+        for (size_t i = 1; i < size; i++) {
+            if (dis[i - 1] < dis[i]) {
+                // std::cerr << "dis[i - 1] < dis[i]: " << dis[i - 1] << " < " << dis[i] << std::endl;
+                // std::cerr << "ids[i - 1]: " << ids[i - 1] << std::endl;
+                // std::cerr << "ids[i]: " << ids[i] << std::endl;
+                assert(false);
+            }
+        }
     }
 }
 

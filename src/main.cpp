@@ -21,18 +21,20 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    std::cout << program.get<size_t>("nlist") << std::endl;
-
     [[maybe_unused]] std::string base_file = program.get<std::string>("base_file");
     [[maybe_unused]] std::string query_file = program.get<std::string>("query_file");
     [[maybe_unused]] size_t nlist = program.get<size_t>("nlist");
     [[maybe_unused]] size_t nprobe = program.get<size_t>("nprobe");
     [[maybe_unused]] size_t k = program.get<size_t>("k");
 
+    nlist = 1;
+    nprobe = 1;
+
     auto [base, nb, d] = loadFvecs(base_file);
     auto [query, nq, _] = loadFvecs(query_file);
 
-    Index index(d, nlist, nprobe);
+    Index index(d, nlist, nprobe, MetricType::METRIC_L2, OptLevel::OPT_SUBNN_IP);
+    // Index index(d, nlist, nprobe, MetricType::METRIC_L2, OptLevel::OPT_NONE);
     index.train(nb, base.get());
     index.add(nb, base.get());
 

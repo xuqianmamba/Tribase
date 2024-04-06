@@ -22,11 +22,12 @@ class Index {
 
     void search(size_t n, const float* queries, size_t k, float* distances, idx_t* labels);
 
-    std::unique_ptr<IVFScanBase> get_scaner(MetricType metric, OptLevel opt_level, size_t k);
-
     // 其他查询方法的声明
 
    private:
+    std::unique_ptr<IVFScanBase> get_scaner(MetricType metric, OptLevel opt_level, size_t k);
+
+   public:
     size_t d;
     size_t nlist;
     size_t nprobe;
@@ -37,7 +38,6 @@ class Index {
     size_t sub_nlist;
     size_t sub_nprobe;
     std::unique_ptr<IVF[]> lists;
-    // std::vector<IVF> lists;
     std::unique_ptr<float[]> centroid_codes;
     std::unique_ptr<idx_t[]> centroid_ids;
 };

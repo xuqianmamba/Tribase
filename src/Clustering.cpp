@@ -13,7 +13,7 @@ Clustering::Clustering(size_t d, size_t nlist, const ClusteringParameters& cp)
 
 void Clustering::train(size_t n, const float* candidate_codes) {
     float* sampling_codes = nullptr;
-    std::cout << "subsampling ..." << std::endl;
+    // std::cout << "subsampling ..." << std::endl;
     // 初始化sampled_codes指向candidate_codes，确保它总是有效的
     const float* sampled_codes = candidate_codes;
     subsample_training_set(n, candidate_codes, sampling_codes);
@@ -23,11 +23,11 @@ void Clustering::train(size_t n, const float* candidate_codes) {
         sampled_codes = sampling_codes;
     }
 
-    std::cout << "initializing ..." << std::endl;
+    // std::cout << "initializing ..." << std::endl;
     initialize_centroids(n, sampled_codes);
 
     for (int iter = 0; iter < cp.niter; ++iter) {
-        std::cout << "updating " << iter << " ..." << std::endl;
+        // std::cout << "updating " << iter << " ..." << std::endl;
         update_centroids(n, sampled_codes);
     }
 
@@ -60,7 +60,7 @@ void Clustering::subsample_training_set(size_t& n, const float* candidate_codes,
 // void Clustering::initialize_centroids(size_t n, const float* sampled_codes) {
 //     if (!sampled_codes) {
 //         std::cerr << "错误：sampled_codes为空指针。" << std::endl;
-//         return; 
+//         return;
 //     }
 
 //     std::vector<size_t> chosen_indices;
@@ -84,7 +84,6 @@ void Clustering::subsample_training_set(size_t& n, const float* candidate_codes,
 //             }
 //         }
 
-
 //         std::discrete_distribution<size_t> weighted_dist(distances.begin(), distances.end());
 //         size_t next_index = weighted_dist(generator);
 //         chosen_indices.push_back(next_index);
@@ -98,11 +97,10 @@ void Clustering::subsample_training_set(size_t& n, const float* candidate_codes,
 //     }
 // }
 
-
 // void Clustering::initialize_centroids(size_t n, const float* sampled_codes) {
 //     if (!sampled_codes) {
 //         std::cerr << "错误：sampled_codes为空指针。" << std::endl;
-//         return; 
+//         return;
 //     }
 
 //     // 生成随机索引
@@ -117,19 +115,17 @@ void Clustering::subsample_training_set(size_t& n, const float* candidate_codes,
 //     }
 // }
 
-
-//Pre
+// Pre
 void Clustering::initialize_centroids(size_t n, const float* sampled_codes) {
     if (!sampled_codes) {
         std::cerr << "错误：sampled_codes为空指针。" << std::endl;
-        return; 
+        return;
     }
 
     std::vector<size_t> chosen_indices;
     std::default_random_engine generator(cp.seed);
     std::uniform_int_distribution<size_t> uniform_dist(0, n - 1);
 
-    
     size_t first_index = uniform_dist(generator);
     chosen_indices.push_back(first_index);
     centroids.assign(sampled_codes + first_index * d, sampled_codes + (first_index + 1) * d);
@@ -138,7 +134,6 @@ void Clustering::initialize_centroids(size_t n, const float* sampled_codes) {
         std::vector<double> distances(n);
         double total_distance = 0.0;
 
-        
         for (size_t j = 0; j < n; ++j) {
             double min_dist = std::numeric_limits<double>::max();
             for (size_t idx : chosen_indices) {
@@ -147,13 +142,13 @@ void Clustering::initialize_centroids(size_t n, const float* sampled_codes) {
                     double diff = sampled_codes[j * d + k] - centroids[idx * d + k];
                     dist += diff * diff;
                 }
-                if (dist < min_dist) min_dist = dist;
+                if (dist < min_dist)
+                    min_dist = dist;
             }
             distances[j] = min_dist;
             total_distance += min_dist;
         }
 
-        
         std::uniform_real_distribution<double> dist(0.0, total_distance);
         double threshold = dist(generator);
         double sum = 0.0;
@@ -167,7 +162,6 @@ void Clustering::initialize_centroids(size_t n, const float* sampled_codes) {
         }
     }
 }
-
 
 // void Clustering::initialize_centroids(size_t n, const float* sampled_codes) {
 //     if (!sampled_codes) {
@@ -195,7 +189,6 @@ void Clustering::initialize_centroids(size_t n, const float* sampled_codes) {
 //     std::vector<size_t> counts(nlist, 0);
 //     Eigen::MatrixXf new_centroids = Eigen::MatrixXf::Zero(d, nlist);
 
-
 //     std::cout<<"n "<<n<<std::endl;
 //     // if (n > 0) {
 //     //     std::cout << "第一个聚类中心: ";
@@ -218,7 +211,6 @@ void Clustering::initialize_centroids(size_t n, const float* sampled_codes) {
 //         }
 //         std::cout << std::endl;
 //     }
-
 
 //     std::cout<<"Update Initialized"<<std::endl;
 //     // if (cp.metric == MetricType::METRIC_L2) {
@@ -278,7 +270,7 @@ void Clustering::initialize_centroids(size_t n, const float* sampled_codes) {
 //                 new_centroids.col(closest_centroid) += codes.col(i);
 //             }
 //         }
-//     }  
+//     }
 
 //     std::cout<<"Updating new ..."<<std::endl;
 //     // 更新 centroids 和 counts
@@ -288,12 +280,11 @@ void Clustering::initialize_centroids(size_t n, const float* sampled_codes) {
 //         }
 //     }
 
-    
 //     apply_centroid_perturbations();
 // }
 void Clustering::update_centroids(size_t n, const float* sampled_codes) {
-    Eigen::Map<const Eigen::MatrixXf> codes(sampled_codes, d, n); 
-    Eigen::Map<Eigen::MatrixXf> centers(centroids.data(), d, nlist); 
+    Eigen::Map<const Eigen::MatrixXf> codes(sampled_codes, d, n);
+    Eigen::Map<Eigen::MatrixXf> centers(centroids.data(), d, nlist);
 
     std::vector<size_t> counts(nlist, 0);
     Eigen::MatrixXf new_centroids = Eigen::MatrixXf::Zero(d, nlist);
@@ -303,7 +294,6 @@ void Clustering::update_centroids(size_t n, const float* sampled_codes) {
         float min_dist = std::numeric_limits<float>::max();
 
         for (size_t j = 0; j < nlist; ++j) {
-            
             float dist = (centers.col(j) - codes.col(i)).squaredNorm();
             if (dist < min_dist) {
                 min_dist = dist;
@@ -312,11 +302,10 @@ void Clustering::update_centroids(size_t n, const float* sampled_codes) {
         }
 
         counts[closest_centroid]++;
-        
+
         new_centroids.col(closest_centroid) += codes.col(i);
     }
 
-    
     for (size_t j = 0; j < nlist; ++j) {
         if (counts[j] > 0) {
             centers.col(j) = new_centroids.col(j) / counts[j];
@@ -332,7 +321,7 @@ void Clustering::apply_centroid_perturbations() {
             // 对于单数聚类中心（索引从0开始，因此这里检查的是偶数索引）
             if (i % 2 == 0) {
                 centroids[i * d + j] -= 1e-6;
-            } else { // 对于双数聚类中心
+            } else {  // 对于双数聚类中心
                 centroids[i * d + j] += 1e-6;
             }
         }

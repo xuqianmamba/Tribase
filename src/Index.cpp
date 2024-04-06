@@ -59,18 +59,18 @@ std::unique_ptr<IVFScanBase> Index::get_scaner(MetricType metric, OptLevel opt_l
         switch (opt_level) {
             case OptLevel::OPT_NONE:
                 return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_NONE>(d, k));
-            case OptLevel::OPT_TRIANGLE:
-                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_TRIANGLE>(d, k));
-            case OptLevel::OPT_SUBNN_L2:
-                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_SUBNN_L2>(d, k));
-            case OptLevel::OPT_SUBNN_IP:
-                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_SUBNN_IP>(d, k));
-            case OptLevel::OPT_TRI_SUBNN_L2:
-                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_TRI_SUBNN_L2>(d, k));
-            case OptLevel::OPT_TRI_SUBNN_IP:
-                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_TRI_SUBNN_IP>(d, k));
-            case OptLevel::OPT_ALL:
-                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_ALL>(d, k));
+            // case OptLevel::OPT_TRIANGLE:
+            //     return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_TRIANGLE>(d, k));
+            // case OptLevel::OPT_SUBNN_L2:
+            //     return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_SUBNN_L2>(d, k));
+            // case OptLevel::OPT_SUBNN_IP:
+            //     return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_SUBNN_IP>(d, k));
+            // case OptLevel::OPT_TRI_SUBNN_L2:
+            //     return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_TRI_SUBNN_L2>(d, k));
+            // case OptLevel::OPT_TRI_SUBNN_IP:
+            //     return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_TRI_SUBNN_IP>(d, k));
+            // case OptLevel::OPT_ALL:
+            //     return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_ALL>(d, k));
             default:
                 throw std::runtime_error("Unsupported opt_level");
         }
@@ -95,11 +95,19 @@ void Index::add(size_t n, const float* codes) {
     std::unique_ptr<idx_t[]> listidcandicates = std::make_unique<idx_t[]>(n);
     init_result(metric, n, candicate2centroid.get(), listidcandicates.get());
     size_t nt = std::min(static_cast<size_t>(omp_get_max_threads()), n);
-    size_t batch_size = (n + nt - 1) / nt;
+    size_t batch_size = n / nt;
+    std::cout << n << " " << nt << " " << batch_size << std::endl;
+    size_t extra = n % nt;
 #pragma omp parallel for num_threads(nt)
     for (size_t i = 0; i < nt; i++) {
-        size_t start = i * batch_size;
-        size_t end = std::min(start + batch_size, n);
+        size_t start, end;
+        if (i < extra) {
+            start = i * (batch_size + 1);
+            end = start + batch_size + 1;
+        } else {
+            start = i * batch_size + extra;
+            end = start + batch_size;
+        }
         if (start < end) {
             single_thread_nearest_cluster_search(end - start, codes + start * d, candicate2centroid.get() + start, listidcandicates.get() + start);
         }
@@ -111,6 +119,19 @@ void Index::add(size_t n, const float* codes) {
 #pragma omp parallel for reduction(+ : list_sizes[ : nlist])
     for (size_t i = 0; i < n; i++) {
         list_sizes[listidcandicates[i]]++;
+    }
+
+    size_t total_add = 0;
+    for (size_t i = 0; i < nlist; i++) {
+        total_add += list_sizes[i];
+    }
+    if (total_add != n) {
+        std::cerr << total_add << " " << n << std::endl;
+        for (int i = 0; i < n; i++) {
+            std::cerr << listidcandicates[i] << " ";
+        }
+        std::cerr << std::endl;
+        throw std::runtime_error("total add not match");
     }
 
 #pragma omp parallel for
@@ -140,17 +161,18 @@ void Index::add(size_t n, const float* codes) {
 
     // check
 
-    // for (size_t i = 0; i < nlist; i++) {
-    //     if (list_sizes[i] != lists[i].get_list_size()) {
-    //         throw std::runtime_error("list size not match");
-    //     }
-    //     for (size_t j = 0; j < list_sizes[i]; j++) {
-    //         for (size_t k = 0; k < d; k++) {
-    //             printf("%f ", lists[i].get_candidate_codes(j)[k]);
-    //         }
-    //         printf("\n");
-    //     }
-    // }
+    for (size_t i = 0; i < nlist; i++) {
+        if (list_sizes[i] != lists[i].get_list_size()) {
+            throw std::runtime_error("list size not match");
+        }
+        printf("list %ld size: %ld\n", i, list_sizes[i]);
+        for (size_t j = 0; j < list_sizes[i]; j++) {
+            for (size_t k = 0; k < d; k++) {
+                printf("%f ", lists[i].get_candidate_codes(j)[k]);
+            }
+            printf("\n");
+        }
+    }
 
     {
         size_t total_processd = 0;
@@ -414,7 +436,7 @@ void Index::single_thread_search(size_t n, const float* queries, size_t k, float
                                list.get_sub_nearest_L2_id(), list.get_sub_nearest_L2_dis(), if_skip.get(), simi, idxi,
                                stats);
         }
-        sort_result(metric, nprobe, simi, idxi);
+        sort_result(metric, k, simi, idxi);
 
         simi += k;
         idxi += k;

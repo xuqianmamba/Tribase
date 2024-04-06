@@ -62,13 +62,16 @@ class IVFScan : public IVFScanBase {
             float dis = 0;
             if constexpr (metric == MetricType::METRIC_IP) {
                 dis = calculatedInnerProduct(query, candicate, d);
+                if (dis > simi[0]) {
+                    heap_replace_top<metric>(k, simi, idxi, dis, ids[i]);
+                }
             } else if constexpr (metric == MetricType::METRIC_L2) {
                 dis = calculatedEuclideanDistance(query, candicate, d);
+                if (dis < simi[0]) {
+                    heap_replace_top<metric>(k, simi, idxi, dis, ids[i]);
+                }
             } else {
                 static_assert(false, "Unsupported metric type");
-            }
-            if (dis < simi[0]) {
-                heap_replace_top<metric>(k, simi, idxi, dis, ids[i]);
             }
         }
     }
@@ -132,21 +135,27 @@ class IVFScan : public IVFScanBase {
                 static_assert(false, "Unsupported metric type");
             }
 
-            if (dis < simi[0]) {
-                idx_t id = ids[i];
-                heap_replace_top<metric>(k, simi, idxi, dis, id);
-                if constexpr (opt_level & OptLevel::OPT_SUBNN_IP) {
-                    if (max_radius + simi[0] >= centroid2query) {
-                        diff_cos = sqrt(centroid2query - simi[0]) * inv_sqrt_centroid2query;
-                    } else {
-                        diff_cos = (max_radius_plus_centroid2query - simi[0]) *
-                                   inv_two_times_sqrt_max_radius_times_centroid2query;
+            if constexpr (metric == MetricType::METRIC_L2) {
+                if (dis < simi[0]) {
+                    idx_t id = ids[i];
+                    heap_replace_top<metric>(k, simi, idxi, dis, id);
+                    if constexpr (opt_level & OptLevel::OPT_SUBNN_IP) {
+                        if (max_radius + simi[0] >= centroid2query) {
+                            diff_cos = sqrt(centroid2query - simi[0]) * inv_sqrt_centroid2query;
+                        } else {
+                            diff_cos = (max_radius_plus_centroid2query - simi[0]) *
+                                       inv_two_times_sqrt_max_radius_times_centroid2query;
+                        }
+                        diff_sin = sqrt(1 - diff_cos * diff_cos);
                     }
-                    diff_sin = sqrt(1 - diff_cos * diff_cos);
-                }
 
-                if constexpr (opt_level & OptLevel::OPT_SUBNN_L2) {
-                    sqrt_simi = sqrt(simi[0]);
+                    if constexpr (opt_level & OptLevel::OPT_SUBNN_L2) {
+                        sqrt_simi = sqrt(simi[0]);
+                    }
+                }
+            } else {
+                if (dis > simi[0]) {
+                    heap_replace_top<metric>(k, simi, idxi, dis, ids[i]);
                 }
             }
 
