@@ -96,7 +96,6 @@ void Index::add(size_t n, const float* codes) {
     init_result(metric, n, candicate2centroid.get(), listidcandicates.get());
     size_t nt = std::min(static_cast<size_t>(omp_get_max_threads()), n);
     size_t batch_size = n / nt;
-    std::cout << n << " " << nt << " " << batch_size << std::endl;
     size_t extra = n % nt;
 #pragma omp parallel for num_threads(nt)
     for (size_t i = 0; i < nt; i++) {
@@ -125,14 +124,14 @@ void Index::add(size_t n, const float* codes) {
     for (size_t i = 0; i < nlist; i++) {
         total_add += list_sizes[i];
     }
-    if (total_add != n) {
-        std::cerr << total_add << " " << n << std::endl;
-        for (int i = 0; i < n; i++) {
-            std::cerr << listidcandicates[i] << " ";
-        }
-        std::cerr << std::endl;
-        throw std::runtime_error("total add not match");
-    }
+    // if (total_add != n) {
+    //     std::cerr << total_add << " " << n << std::endl;
+    //     for (int i = 0; i < n; i++) {
+    //         std::cerr << listidcandicates[i] << " ";
+    //     }
+    //     std::cerr << std::endl;
+    //     throw std::runtime_error("total add not match");
+    // }
 
 #pragma omp parallel for
     for (size_t i = 0; i < nlist; i++) {
@@ -160,19 +159,18 @@ void Index::add(size_t n, const float* codes) {
     }
 
     // check
-
-    for (size_t i = 0; i < nlist; i++) {
-        if (list_sizes[i] != lists[i].get_list_size()) {
-            throw std::runtime_error("list size not match");
-        }
-        printf("list %ld size: %ld\n", i, list_sizes[i]);
-        for (size_t j = 0; j < list_sizes[i]; j++) {
-            for (size_t k = 0; k < d; k++) {
-                printf("%f ", lists[i].get_candidate_codes(j)[k]);
-            }
-            printf("\n");
-        }
-    }
+    // for (size_t i = 0; i < nlist; i++) {
+    //     if (list_sizes[i] != lists[i].get_list_size()) {
+    //         throw std::runtime_error("list size not match");
+    //     }
+    //     printf("list %ld size: %ld\n", i, list_sizes[i]);
+    //     for (size_t j = 0; j < list_sizes[i]; j++) {
+    //         for (size_t k = 0; k < d; k++) {
+    //             printf("%f ", lists[i].get_candidate_codes(j)[k]);
+    //         }
+    //         printf("\n");
+    //     }
+    // }
 
     {
         size_t total_processd = 0;
@@ -451,7 +449,6 @@ void Index::search(size_t n, const float* queries, size_t k, float* distances, i
     }
     init_result(metric, n * k, distances, labels);
     size_t nt = std::min(static_cast<size_t>(omp_get_max_threads()), n);
-    nt = 1;
     size_t batch_size = n / nt;
     size_t extra = n % nt;
     std::vector<Stats> stats(nt);

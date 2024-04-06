@@ -7,11 +7,11 @@
 using namespace tribase;
 int main(int argc, char* argv[]) {
     argparse::ArgumentParser program("tribase");
-    program.add_argument("base_file").help("base file path").default_value(std::string("../src/tests/iris.fvecs"));
-    program.add_argument("query_file").help("query file path").default_value(std::string("../src/tests/iris.fvecs"));
-    program.add_argument("nlist").help("number of clusters").default_value(3ul).action([](const std::string& value) -> size_t { return std::stoul(value); });
-    program.add_argument("nprobe").help("number of clusters to search").default_value(3ul).action([](const std::string& value) -> size_t { return std::stoul(value); });
-    program.add_argument("k").help("number of nearest neighbors").default_value(3ul).action([](const std::string& value) -> size_t { return std::stoul(value); });
+    program.add_argument("--base_file").help("base file path").default_value(std::string("../src/tests/iris.fvecs"));
+    program.add_argument("--query_file").help("query file path").default_value(std::string("../src/tests/iris.fvecs"));
+    program.add_argument("--nlist").help("number of clusters").default_value(3ul).action([](const std::string& value) -> size_t { return std::stoul(value); });
+    program.add_argument("--nprobe").help("number of clusters to search").default_value(3ul).action([](const std::string& value) -> size_t { return std::stoul(value); });
+    program.add_argument("--k").help("number of nearest neighbors").default_value(3ul).action([](const std::string& value) -> size_t { return std::stoul(value); });
 
     try {
         program.parse_args(argc, argv);
@@ -27,25 +27,25 @@ int main(int argc, char* argv[]) {
     [[maybe_unused]] size_t nprobe = program.get<size_t>("nprobe");
     [[maybe_unused]] size_t k = program.get<size_t>("k");
 
-    nlist = 1;
-    nprobe = 1;
-
     auto [base, nb, d] = loadFvecs(base_file);
     auto [query, nq, _] = loadFvecs(query_file);
 
-    Index index(d, nlist, nprobe, MetricType::METRIC_L2, OptLevel::OPT_SUBNN_IP);
-    // Index index(d, nlist, nprobe, MetricType::METRIC_L2, OptLevel::OPT_NONE);
+    // Index index(d, nlist, nprobe, MetricType::METRIC_L2, OptLevel::OPT_SUBNN_IP);
+    Index index(d, nlist, nprobe, MetricType::METRIC_L2, OptLevel::OPT_NONE);
     index.train(nb, base.get());
     index.add(nb, base.get());
 
     std::unique_ptr<float[]> distances(new float[nq * k]);
     std::unique_ptr<idx_t[]> labels(new idx_t[nq * k]);
-    index.search(nq, query.get(), k, distances.get(), labels.get());
 
-    for (size_t i = 0; i < nq; i++) {
-        for (size_t j = 0; j < k; j++) {
-            std::cout << std::format("({},{})", distances[i * k + j], labels[i * k + j]) << " ";
-        }
-        std::cout << std::endl;
-    }
+    Stopwatch sw;
+    index.search(nq, query.get(), k, distances.get(), labels.get());
+    std::cout << "search time: " << sw.elapsedSeconds() << "s" << std::endl;
+
+    // for (size_t i = 0; i < nq; i++) {
+    //     for (size_t j = 0; j < k; j++) {
+    //         std::cout << std::format("({},{})", distances[i * k + j], labels[i * k + j]) << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
 }
