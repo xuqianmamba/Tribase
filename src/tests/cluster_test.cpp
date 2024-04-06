@@ -4,7 +4,7 @@
 using namespace tribase;
 
 int main() {
-    auto [data, n, d] = loadFvecs("/home/panjunda/tribase/Tribase/src/tests/iris.fvecs");
+    auto [data, n, d] = loadFvecs("/home/xuqian/Triangle/Tribase/src/tests/iris.fvecs");
     ClusteringParameters cp;
     cp.niter = 10;
     cp.seed = 6666;
