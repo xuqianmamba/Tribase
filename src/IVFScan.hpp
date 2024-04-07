@@ -226,6 +226,7 @@ class IVFScan : public IVFScanBase {
                 for (size_t skip_fake_id = skip_fake_id_begin; skip_fake_id < skip_fake_id_end; skip_fake_id++) {
                     float tmp_plus = nearest_L2_dis[skip_fake_id] + sqrt_simi;
                     size_t skip_true_id = nearest_L2_id[skip_fake_id];
+                    std::cout << dis << " " << tmp_plus * tmp_plus << std::endl;
                     if (skip_true_id > 0 && dis > tmp_plus * tmp_plus) {  // already sqrt nearest_L2_dis
 #ifdef DEBUG
                         if (!if_skip[skip_true_id] && i < skip_true_id) {

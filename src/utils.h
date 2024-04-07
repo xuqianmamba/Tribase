@@ -161,8 +161,9 @@ inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, s
         float diff = vec1[i] - vec2[i];
         distance += diff * diff;
     }
+    return distance;
 
-    return sqrt(distance);
+    // return sqrt(distance);
 }
 
 // Calculates the inner product between two vectors

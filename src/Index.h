@@ -28,14 +28,14 @@ class Index {
 
     void add(size_t n, const float* codes);
 
-    void search(size_t n, const float* queries, size_t k, float* distances, idx_t* labels);
+    Stats search(size_t n, const float* queries, size_t k, float* distances, idx_t* labels);
     void save_index(std::string path) const;
     void load_index(std::string path);
 
     // 其他查询方法的声明
 
    private:
-    std::unique_ptr<IVFScanBase> get_scaner(MetricType metric, OptLevel opt_level, size_t k);
+    std::unique_ptr<IVFScanBase> get_scanner(MetricType metric, OptLevel opt_level, size_t k);
 
    public:
     size_t d;

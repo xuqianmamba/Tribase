@@ -35,7 +35,7 @@ void Index::train(size_t n, const float* codes) {
     this->centroid_codes.reset(clustering.get_centroids());
 }
 
-std::unique_ptr<IVFScanBase> Index::get_scaner(MetricType metric, OptLevel opt_level, size_t k) {
+std::unique_ptr<IVFScanBase> Index::get_scanner(MetricType metric, OptLevel opt_level, size_t k) {
     if (metric == MetricType::METRIC_L2) {
         switch (opt_level) {
             case OptLevel::OPT_NONE:
@@ -78,7 +78,7 @@ std::unique_ptr<IVFScanBase> Index::get_scaner(MetricType metric, OptLevel opt_l
 };
 
 void Index::single_thread_nearest_cluster_search(size_t n, const float* queries, float* distances, idx_t* labels) {
-    std::unique_ptr<IVFScanBase> scaner_quantizer = get_scaner(metric, OPT_NONE, sub_k);
+    std::unique_ptr<IVFScanBase> scaner_quantizer = get_scanner(metric, OPT_NONE, sub_k);
     for (size_t i = 0; i < n; i++) {
         scaner_quantizer->set_query(queries + i * d);
         scaner_quantizer->lite_scan_codes(nlist,
@@ -352,8 +352,8 @@ void Index::add(size_t n, const float* codes) {
 }
 
 void Index::single_thread_search(size_t n, const float* queries, size_t k, float* distances, idx_t* labels, Stats* stats) {
-    std::unique_ptr<IVFScanBase> scaner_quantizer = get_scaner(metric, OPT_NONE, nprobe);
-    std::unique_ptr<IVFScanBase> scaner = get_scaner(metric, opt_level, k);
+    std::unique_ptr<IVFScanBase> scaner_quantizer = get_scanner(metric, OPT_NONE, nprobe);
+    std::unique_ptr<IVFScanBase> scaner = get_scanner(metric, opt_level, k);
 
     std::unique_ptr<float[]> centroid2queries = std::make_unique<float[]>(n * nprobe);
     std::unique_ptr<idx_t[]> listidqueries = std::make_unique<idx_t[]>(n * nprobe);
@@ -435,7 +435,7 @@ void Index::single_thread_search(size_t n, const float* queries, size_t k, float
     }
 }
 
-void Index::search(size_t n, const float* queries, size_t k, float* distances, idx_t* labels) {
+Stats Index::search(size_t n, const float* queries, size_t k, float* distances, idx_t* labels) {
     if ((opt_level & added_opt_level) != opt_level) {
         throw std::runtime_error("opt_level is not subset of added_opt_level");
     }
@@ -464,6 +464,7 @@ void Index::search(size_t n, const float* queries, size_t k, float* distances, i
     }
 
     [[maybe_unused]] Stats total_stats = mergeStats(stats);
+    return total_stats;
 }
 
 void Index::save_index(std::string path) const {

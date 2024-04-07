@@ -21,7 +21,7 @@ int main(int argc, char* argv[]) {
     program.add_argument("--format").help("format of the dataset").default_value(std::string("fvecs"));
     program.add_argument("--k").help("number of nearest neighbors").default_value(100ul).action([](const std::string& value) -> size_t { return std::stoul(value); });
     program.add_argument("--nprobes").default_value(std::vector<size_t>({1ul})).nargs(0, 100).help("number of clusters to search").scan<'u', size_t>();
-    program.add_argument("--opt_levels").default_value(std::vector<std::string>({std::string("OPT_NONE")})).nargs(0, 10).help("optimization levels");
+    program.add_argument("--opt_levels").default_value(std::vector<std::string>({"OPT_NONE", "OPT_TRIANGLE", "OPT_SUBNN_L2", "OPT_SUBNN_IP", "OPT_ALL"})).nargs(0, 10).help("optimization levels");
     program.add_argument("--train_only").default_value(false).implicit_value(true).help("train only");
 
     try {
@@ -92,6 +92,10 @@ int main(int argc, char* argv[]) {
         throw std::runtime_error(std::format("Groundtruth file {} does not exist", groundtruth_path));
     }
 
+    if (nprobes.back() == 0) {
+        nprobes.back() = nlist;
+    }
+
     for (size_t nprobe : nprobes) {
         index.nprobe = nprobe;
         for (const OptLevel& opt_level : opt_levels) {
@@ -99,7 +103,8 @@ int main(int argc, char* argv[]) {
             std::string output_path = std::format("{}/{}/result/result_nlist_{}_nprobe_{}_opt_{}_k_{}.txt", benchmarks_path, dataset, nlist, nprobe, static_cast<int>(opt_level), k);
             std::unique_ptr<float[]> distances = std::make_unique<float[]>(nq * k);
             std::unique_ptr<idx_t[]> labels = std::make_unique<idx_t[]>(nq * k);
-            index.search(nq, query.get(), k, distances.get(), labels.get());
+            Stats ststs = index.search(nq, query.get(), k, distances.get(), labels.get());
+            ststs.print();
             writeResultsToFile(labels.get(), distances.get(), nq, k, output_path);
         }
     }
