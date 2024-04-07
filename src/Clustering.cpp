@@ -133,49 +133,67 @@ void Clustering::initialize_centroids(size_t n, const float* sampled_codes) {
         return;
     }
 
-    std::vector<size_t> chosen_indices;
-    std::default_random_engine generator(cp.seed);
-    std::uniform_int_distribution<size_t> uniform_dist(0, n - 1);
+    // 生成随机索引
+    std::vector<size_t> indices(n);
+    std::iota(indices.begin(), indices.end(), 0);  // 从0开始填充索引
+    std::shuffle(indices.begin(), indices.end(), std::default_random_engine(cp.seed));  // 使用随机引擎打乱索引
 
-    size_t first_index = uniform_dist(generator);
-    chosen_indices.push_back(first_index);
-    centroids.assign(sampled_codes + first_index * d, sampled_codes + (first_index + 1) * d);
-
-    for (size_t i = 1; i < nlist; ++i) {
-        if (verbose) {
-            std::cout << "init " << i << " of " << nlist << std::endl;
-        }
-        std::vector<double> distances(n);
-        double total_distance = 0.0;
-
-#pragma omp parallel for reduction(+ : total_distance)
-        for (size_t j = 0; j < n; ++j) {
-            double min_dist = std::numeric_limits<double>::max();
-            for (size_t idx = 0; idx < chosen_indices.size(); ++idx) {
-                double dist = 0.0;
-                for (size_t k = 0; k < d; ++k) {
-                    double diff = sampled_codes[j * d + k] - centroids[idx * d + k];
-                    dist += diff * diff;
-                }
-                min_dist = std::min(min_dist, dist);
-            }
-            distances[j] = min_dist;
-            total_distance += min_dist;
-        }
-
-        std::uniform_real_distribution<double> dist(0.0, total_distance);
-        double threshold = dist(generator);
-        double sum = 0.0;
-        for (size_t j = 0; j < n; ++j) {
-            sum += distances[j];
-            if (sum >= threshold) {
-                chosen_indices.push_back(j);
-                centroids.insert(centroids.end(), sampled_codes + j * d, sampled_codes + (j + 1) * d);
-                break;
-            }
-        }
+    // 根据随机索引选择初始聚类中心
+    centroids.resize(nlist * d);  // 确保centroids有足够的空间存储所有中心
+    for (size_t i = 0; i < nlist; ++i) {
+        size_t index = indices[i];  // 获取随机索引
+        std::copy_n(sampled_codes + index * d, d, centroids.data() + i * d);  // 复制选中的点作为聚类中心
     }
 }
+// void Clustering::initialize_centroids(size_t n, const float* sampled_codes) {
+//     if (!sampled_codes) {
+//         std::cerr << "错误：sampled_codes为空指针。" << std::endl;
+//         return;
+//     }
+
+//     std::vector<size_t> chosen_indices;
+//     std::default_random_engine generator(cp.seed);
+//     std::uniform_int_distribution<size_t> uniform_dist(0, n - 1);
+
+//     size_t first_index = uniform_dist(generator);
+//     chosen_indices.push_back(first_index);
+//     centroids.assign(sampled_codes + first_index * d, sampled_codes + (first_index + 1) * d);
+
+//     for (size_t i = 1; i < nlist; ++i) {
+//         if (verbose) {
+//             std::cout << "init " << i << " of " << nlist << std::endl;
+//         }
+//         std::vector<double> distances(n);
+//         double total_distance = 0.0;
+
+// #pragma omp parallel for reduction(+ : total_distance)
+//         for (size_t j = 0; j < n; ++j) {
+//             double min_dist = std::numeric_limits<double>::max();
+//             for (size_t idx = 0; idx < chosen_indices.size(); ++idx) {
+//                 double dist = 0.0;
+//                 for (size_t k = 0; k < d; ++k) {
+//                     double diff = sampled_codes[j * d + k] - centroids[idx * d + k];
+//                     dist += diff * diff;
+//                 }
+//                 min_dist = std::min(min_dist, dist);
+//             }
+//             distances[j] = min_dist;
+//             total_distance += min_dist;
+//         }
+
+//         std::uniform_real_distribution<double> dist(0.0, total_distance);
+//         double threshold = dist(generator);
+//         double sum = 0.0;
+//         for (size_t j = 0; j < n; ++j) {
+//             sum += distances[j];
+//             if (sum >= threshold) {
+//                 chosen_indices.push_back(j);
+//                 centroids.insert(centroids.end(), sampled_codes + j * d, sampled_codes + (j + 1) * d);
+//                 break;
+//             }
+//         }
+//     }
+// }
 
 // void Clustering::initialize_centroids(size_t n, const float* sampled_codes) {
 //     if (!sampled_codes) {
