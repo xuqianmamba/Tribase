@@ -1,7 +1,7 @@
 #include "Clustering.h"
 
 #include <omp.h>
-
+#include <chrono>
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -21,7 +21,17 @@ void Clustering::train(size_t n, const float* candidate_codes) {
         sampled_codes = sampling_codes;
     }
 
+    // 开始计时
+    auto start = std::chrono::high_resolution_clock::now();
+
     initialize_centroids(n, sampled_codes);
+
+    // 结束计时
+    auto end = std::chrono::high_resolution_clock::now();
+
+    // 计算并输出执行时间
+    std::chrono::duration<double, std::milli> elapsed = end - start;
+    std::cout << "initialize_centroids 耗时: " << elapsed.count() << " ms\n";
 
     for (int iter = 0; iter < cp.niter; ++iter) {
         update_centroids(n, sampled_codes);
@@ -130,7 +140,7 @@ void Clustering::initialize_centroids(size_t n, const float* sampled_codes) {
         std::vector<double> distances(n);
         double total_distance = 0.0;
 
-#pragma omp parallel for reduction(+ : total_distance)
+        #pragma omp parallel for reduction(+:total_distance)
         for (size_t j = 0; j < n; ++j) {
             double min_dist = std::numeric_limits<double>::max();
             for (size_t idx = 0; idx < chosen_indices.size(); ++idx) {
@@ -139,8 +149,7 @@ void Clustering::initialize_centroids(size_t n, const float* sampled_codes) {
                     double diff = sampled_codes[j * d + k] - centroids[idx * d + k];
                     dist += diff * diff;
                 }
-                if (dist < min_dist)
-                    min_dist = dist;
+                min_dist = std::min(min_dist, dist);
             }
             distances[j] = min_dist;
             total_distance += min_dist;
@@ -285,11 +294,10 @@ void Clustering::update_centroids(size_t n, const float* sampled_codes) {
 
     std::vector<size_t> counts(nlist, 0);
     Eigen::MatrixXf new_centroids = Eigen::MatrixXf::Zero(d, nlist);
-
+    #pragma omp parallel for
     for (size_t i = 0; i < n; ++i) {
         size_t closest_centroid = 0;
         float min_dist = std::numeric_limits<float>::max();
-
         for (size_t j = 0; j < nlist; ++j) {
             float dist = (centers.col(j) - codes.col(i)).squaredNorm();
             if (dist < min_dist) {
@@ -298,9 +306,13 @@ void Clustering::update_centroids(size_t n, const float* sampled_codes) {
             }
         }
 
+        #pragma omp atomic
         counts[closest_centroid]++;
 
-        new_centroids.col(closest_centroid) += codes.col(i);
+        #pragma omp critical
+        {
+            new_centroids.col(closest_centroid) += codes.col(i);
+        }
     }
 
     for (size_t j = 0; j < nlist; ++j) {
