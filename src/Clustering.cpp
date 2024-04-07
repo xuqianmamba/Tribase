@@ -313,41 +313,103 @@ void Clustering::initialize_centroids(size_t n, const float* sampled_codes) {
 
 //     apply_centroid_perturbations();
 // }
+// void Clustering::update_centroids(size_t n, const float* sampled_codes) {
+//     Eigen::Map<const Eigen::MatrixXf> codes(sampled_codes, d, n);
+//     Eigen::Map<Eigen::MatrixXf> centers(centroids.data(), d, nlist);
+
+//     std::vector<size_t> counts(nlist, 0);
+//     Eigen::MatrixXf new_centroids = Eigen::MatrixXf::Zero(d, nlist);
+// #pragma omp parallel for
+//     for (size_t i = 0; i < n; ++i) {
+//         size_t closest_centroid = 0;
+//         float min_dist = std::numeric_limits<float>::max();
+//         for (size_t j = 0; j < nlist; ++j) {
+//             float dist = (centers.col(j) - codes.col(i)).squaredNorm();
+//             if (dist < min_dist) {
+//                 min_dist = dist;
+//                 closest_centroid = j;
+//             }
+//         }
+
+// #pragma omp atomic
+//         counts[closest_centroid]++;
+
+// #pragma omp critical
+//         {
+//             new_centroids.col(closest_centroid) += codes.col(i);
+//         }
+//     }
+
+//     for (size_t j = 0; j < nlist; ++j) {
+//         if (counts[j] > 0) {
+//             centers.col(j) = new_centroids.col(j) / counts[j];
+//         }
+//     }
+
+//     apply_centroid_perturbations();
+// }
+
 void Clustering::update_centroids(size_t n, const float* sampled_codes) {
     Eigen::Map<const Eigen::MatrixXf> codes(sampled_codes, d, n);
     Eigen::Map<Eigen::MatrixXf> centers(centroids.data(), d, nlist);
 
     std::vector<size_t> counts(nlist, 0);
     Eigen::MatrixXf new_centroids = Eigen::MatrixXf::Zero(d, nlist);
-#pragma omp parallel for
-    for (size_t i = 0; i < n; ++i) {
-        size_t closest_centroid = 0;
-        float min_dist = std::numeric_limits<float>::max();
-        for (size_t j = 0; j < nlist; ++j) {
-            float dist = (centers.col(j) - codes.col(i)).squaredNorm();
-            if (dist < min_dist) {
-                min_dist = dist;
-                closest_centroid = j;
+
+    if (cp.metric == MetricType::METRIC_L2) {
+        #pragma omp parallel for
+        for (size_t i = 0; i < n; ++i) {
+            size_t closest_centroid = 0;
+            float min_dist = std::numeric_limits<float>::max();
+            for (size_t j = 0; j < nlist; ++j) {
+                float dist = (centers.col(j) - codes.col(i)).squaredNorm();
+                if (dist < min_dist) {
+                    min_dist = dist;
+                    closest_centroid = j;
+                }
+            }
+
+            #pragma omp atomic
+            counts[closest_centroid]++;
+
+            #pragma omp critical
+            {
+                new_centroids.col(closest_centroid) += codes.col(i);
             }
         }
+    } else if (cp.metric == MetricType::METRIC_IP) {
+        Eigen::MatrixXf normalized_codes = codes.colwise().normalized();
 
-#pragma omp atomic
-        counts[closest_centroid]++;
+        #pragma omp parallel for
+        for (size_t i = 0; i < n; ++i) {
+            size_t closest_centroid = 0;
+            float max_ip = std::numeric_limits<float>::lowest();
+            for (size_t j = 0; j < nlist; ++j) {
+                float ip = normalized_codes.col(i).dot(centers.col(j));
+                if (ip > max_ip) {
+                    max_ip = ip;
+                    closest_centroid = j;
+                }
+            }
 
-#pragma omp critical
-        {
-            new_centroids.col(closest_centroid) += codes.col(i);
+            #pragma omp atomic
+            counts[closest_centroid]++;
+
+            #pragma omp critical
+            {
+                new_centroids.col(closest_centroid) += codes.col(i); 
+            }
         }
     }
 
-    for (size_t j = 0; j < nlist; ++j) {
-        if (counts[j] > 0) {
-            centers.col(j) = new_centroids.col(j) / counts[j];
+    for (size_t i = 0; i < nlist; ++i) {
+        if (counts[i] > 0) {
+            centers.col(i) = new_centroids.col(i) / counts[i];
         }
     }
 
-    apply_centroid_perturbations();
 }
+
 
 void Clustering::apply_centroid_perturbations() {
     for (size_t i = 0; i < nlist; ++i) {
