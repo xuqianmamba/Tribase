@@ -31,7 +31,6 @@ void Clustering::train(size_t n, const float* candidate_codes) {
 
     // 计算并输出执行时间
     std::chrono::duration<double, std::milli> elapsed = end - start;
-    std::cout << "initialize_centroids 耗时: " << elapsed.count() << " ms\n";
 
     for (int iter = 0; iter < cp.niter; ++iter) {
         if (verbose) {
@@ -129,19 +128,19 @@ void Clustering::subsample_training_set(size_t& n, const float* candidate_codes,
 // Pre
 void Clustering::initialize_centroids(size_t n, const float* sampled_codes) {
     if (!sampled_codes) {
-        std::cerr << "错误：sampled_codes为空指针。" << std::endl;
+        std::cerr << "Error: sampled_codes is a null pointer." << std::endl;
         return;
     }
 
     // 生成随机索引
     std::vector<size_t> indices(n);
-    std::iota(indices.begin(), indices.end(), 0);  // 从0开始填充索引
+    std::iota(indices.begin(), indices.end(), 0);                                       // 从0开始填充索引
     std::shuffle(indices.begin(), indices.end(), std::default_random_engine(cp.seed));  // 使用随机引擎打乱索引
 
     // 根据随机索引选择初始聚类中心
     centroids.resize(nlist * d);  // 确保centroids有足够的空间存储所有中心
     for (size_t i = 0; i < nlist; ++i) {
-        size_t index = indices[i];  // 获取随机索引
+        size_t index = indices[i];                                            // 获取随机索引
         std::copy_n(sampled_codes + index * d, d, centroids.data() + i * d);  // 复制选中的点作为聚类中心
     }
 }

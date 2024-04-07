@@ -23,6 +23,8 @@ int main(int argc, char* argv[]) {
     program.add_argument("--nprobes").default_value(std::vector<size_t>({1ul})).nargs(0, 100).help("number of clusters to search").scan<'u', size_t>();
     program.add_argument("--opt_levels").default_value(std::vector<std::string>({"OPT_NONE", "OPT_TRIANGLE", "OPT_SUBNN_L2", "OPT_SUBNN_IP", "OPT_ALL"})).nargs(0, 10).help("optimization levels");
     program.add_argument("--train_only").default_value(false).implicit_value(true).help("train only");
+    program.add_argument("--cache").default_value(false).implicit_value(true).help("use cached index");
+    program.add_argument("--high_precision_subNN_index").default_value(false).implicit_value(true).help("use high precision subNN index");
 
     try {
         program.parse_args(argc, argv);
@@ -49,6 +51,8 @@ int main(int argc, char* argv[]) {
     std::string dataset = program.get<std::string>("dataset");
     std::string format = program.get<std::string>("format");
     bool train_only = program.get<bool>("train_only");
+    bool cache = program.get<bool>("cache");
+    bool high_precision_subNN_index = program.get<bool>("high_precision_subNN_index");
 
     std::string base_path = std::format("{}/{}/origin/{}_base.{}", benchmarks_path, dataset, dataset, format);
     std::string query_path = std::format("{}/{}/origin/{}_query.{}", benchmarks_path, dataset, dataset, format);
@@ -57,16 +61,20 @@ int main(int argc, char* argv[]) {
     auto [nb, d] = loadFvecsInfo(base_path);
     size_t nlist = static_cast<size_t>(std::sqrt(nb));
 
-    std::string index_path = std::format("{}/{}/index/index_nlist_{}_opt_{}.index", benchmarks_path, dataset, nlist, static_cast<int>(added_opt_levels));
+    std::string index_path = std::format("{}/{}/index/index_nlist_{}_opt_{}_{}.index", benchmarks_path, dataset, nlist, static_cast<int>(added_opt_levels), high_precision_subNN_index ? "high_precision" : "low_precision");
     Index index;
 
-    if (std::filesystem::exists(index_path)) {
+    if (std::filesystem::exists(index_path) && cache) {
         std::cout << std::format("Loading index from {}", index_path) << std::endl;
         index.load_index(index_path);
     } else {
         auto [base, nb, d] = loadFvecs(base_path);
         nlist = static_cast<size_t>(std::sqrt(nb));
-        index = Index(d, nlist, 0, MetricType::METRIC_L2, added_opt_levels);
+        if (high_precision_subNN_index) {
+            index = Index(d, nlist, 0, MetricType::METRIC_L2, added_opt_levels, 50, 1, 1, true);
+        } else {
+            index = Index(d, nlist, 0, MetricType::METRIC_L2, added_opt_levels, 50, 20, 5, true);
+        }
         index.train(nb, base.get());
         index.add(nb, base.get());
         index.save_index(index_path);

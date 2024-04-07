@@ -184,9 +184,8 @@ void Index::add(size_t n, const float* codes) {
         double log_interval = 2;
 
         [[maybe_unused]] auto running_log = [&]() -> void {
-            if (!verbose) {
+            if (verbose) {
                 if (logwatch.elapsedSeconds() > log_interval) {
-                    std::cout << logwatch.elapsedSeconds() << " " << log_interval << std::endl;
                     logwatch.reset();
                     printf("build: %.2f%%\n", 100.0 * total_processd / nlist);
                     double total_elapsed = train_elapsed + add_elapsed + search_elapsed;
@@ -214,7 +213,7 @@ void Index::add(size_t n, const float* codes) {
         };
 
         [[maybe_unused]] auto end_log = [&]() -> void {
-            if (!verbose) {
+            if (verbose) {
                 double total_elapsed = train_elapsed + add_elapsed + search_elapsed;
                 printf("add: 100.0%%    build: 100.0%%\n");
                 printf("train: %.2f (%.2f%%)    add: %.2f    search: %.2f    total: %.2f\n",
@@ -241,7 +240,7 @@ void Index::add(size_t n, const float* codes) {
             const float* centroid_code = centroid_codes.get() + listid * d;
 
             if (opt_level & OptLevel::OPT_SUBNN_L2) {
-                Index sub_index(d, this_sub_nlist_L2, this_sub_nprobe_L2, MetricType::METRIC_L2, OptLevel::OPT_NONE, 0, 0, 0, true);
+                Index sub_index(d, this_sub_nlist_L2, this_sub_nprobe_L2, MetricType::METRIC_L2, OptLevel::OPT_NONE, 0, 0, 0, false);
                 Stopwatch watch;
                 sub_index.train(nb, xb);
 #pragma omp atomic
@@ -272,7 +271,7 @@ void Index::add(size_t n, const float* codes) {
                             }
                         }
                     }
-                    total_sub_count_l2 += recall_nb;
+                    total_sub_count_l2 += recall_nb * sub_k;
                 }
             }
 
@@ -294,7 +293,7 @@ void Index::add(size_t n, const float* codes) {
                         }
                     }
                 }
-                Index sub_index(d, this_sub_nlist_IP, this_sub_nprobe_IP, MetricType::METRIC_IP, OptLevel::OPT_NONE, 0, 0, 0, true);
+                Index sub_index(d, this_sub_nlist_IP, this_sub_nprobe_IP, MetricType::METRIC_IP, OptLevel::OPT_NONE, 0, 0, 0, false);
                 Stopwatch watch;
                 sub_index.train(nb, norm_xb);
 #pragma omp atomic
@@ -325,7 +324,7 @@ void Index::add(size_t n, const float* codes) {
                             }
                         }
                     }
-                    total_sub_count_ip += recall_nb;
+                    total_sub_count_ip += recall_nb * sub_k;
                 }
 
                 for (size_t j = 0; j < nb * d; j++) {
