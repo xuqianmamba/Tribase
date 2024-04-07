@@ -3,6 +3,7 @@
 #include <cassert>
 #include <chrono>
 #include <cmath>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -101,10 +102,10 @@ class Stopwatch {
         : start(std::chrono::high_resolution_clock::now()) {}
 
     // Resets the start time to the current time
-    void reset() { start = std::chrono::high_resolution_clock::now(); }
+    inline void reset() { start = std::chrono::high_resolution_clock::now(); }
 
     // Returns the elapsed time in milliseconds since the stopwatch was started or last reset
-    double elapsedMilliseconds(bool isReset = false) {
+    inline double elapsedMilliseconds(bool isReset = false) {
         auto end = std::chrono::high_resolution_clock::now();
         auto ret = std::chrono::duration<double, std::milli>(end - start).count();
         if (isReset) {
@@ -113,7 +114,7 @@ class Stopwatch {
         return ret;
     }
 
-    double elapsedSeconds(bool isReset = false) {
+    inline double elapsedSeconds(bool isReset = false) {
         auto end = std::chrono::high_resolution_clock::now();
         auto ret = std::chrono::duration<double>(end - start).count();
         if (isReset) {
@@ -175,7 +176,15 @@ inline float calculateCosineSimilarity(const float* vec1, const float* vec2, siz
     return dotProduct / (magnitude1 * magnitude2);
 }
 
-inline void writeResultsToFile(const idx_t* labels, const float* distances, size_t nq, size_t k,std::string filePath) {
+inline void prepareDirectory(const std::string& filePath) {
+    std::filesystem::path path(filePath);
+    if (!std::filesystem::exists(path.parent_path())) {
+        std::filesystem::create_directories(path.parent_path());
+    }
+}
+
+inline void writeResultsToFile(const idx_t* labels, const float* distances, size_t nq, size_t k, std::string filePath) {
+    prepareDirectory(filePath);
     std::ofstream outFile(filePath);
 
     if (!outFile.is_open()) {
@@ -188,10 +197,10 @@ inline void writeResultsToFile(const idx_t* labels, const float* distances, size
             // 先写入id，然后写入distance
             outFile << labels[i * k + j] << " " << std::fixed << std::setprecision(6) << distances[i * k + j];
             if (j < k - 1) {
-                outFile << " "; // 在同一行内的元素之间添加空格
+                outFile << " ";  // 在同一行内的元素之间添加空格
             }
         }
-        outFile << "\n"; // 每个向量的结果结束后换行
+        outFile << "\n";  // 每个向量的结果结束后换行
     }
 
     outFile.close();

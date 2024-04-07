@@ -11,7 +11,15 @@ namespace tribase {
 
 class Index {
    public:
-    Index(size_t d, size_t nlist, size_t nprobe, MetricType metric = MetricType::METRIC_L2, OptLevel opt_level = OptLevel::OPT_NONE, size_t sub_k = 0, size_t sub_nlist = 1, size_t sub_nprobe = 1);
+    Index(size_t d,
+          size_t nlist,
+          size_t nprobe,
+          MetricType metric = MetricType::METRIC_L2,
+          OptLevel opt_level = OptLevel::OPT_NONE,
+          size_t sub_k = 0,
+          size_t sub_nlist = 1,
+          size_t sub_nprobe = 1,
+          bool is_sub_index = false);
 
     void train(size_t n, const float* codes);
 
@@ -37,6 +45,9 @@ class Index {
     size_t sub_k;
     size_t sub_nlist;
     size_t sub_nprobe;
+
+    bool is_sub_index;
+
     std::unique_ptr<IVF[]> lists;
     std::unique_ptr<float[]> centroid_codes;
     std::unique_ptr<idx_t[]> centroid_ids;

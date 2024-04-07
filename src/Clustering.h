@@ -31,7 +31,7 @@ class Clustering {
 
     std::vector<float> centroids;
 
-    void subsample_training_set(size_t& n, const float* candidate_codes, float*& sampled_codes);
+    void subsample_training_set(size_t& n, const float* candidate_codes, float*& sampling_codes);
     void initialize_centroids(size_t n, const float* candidate_codes);
     void update_centroids(size_t n, const float* candidate_codes);
     void apply_centroid_perturbations();

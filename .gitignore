@@ -1,2 +1,7 @@
 .vscode
 build
+release
+debug
+result
+nuswide
+*.npy

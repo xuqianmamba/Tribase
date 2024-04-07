@@ -13,8 +13,6 @@ Clustering::Clustering(size_t d, size_t nlist, const ClusteringParameters& cp)
 
 void Clustering::train(size_t n, const float* candidate_codes) {
     float* sampling_codes = nullptr;
-    // std::cout << "subsampling ..." << std::endl;
-    // 初始化sampled_codes指向candidate_codes，确保它总是有效的
     const float* sampled_codes = candidate_codes;
     subsample_training_set(n, candidate_codes, sampling_codes);
 
@@ -23,21 +21,19 @@ void Clustering::train(size_t n, const float* candidate_codes) {
         sampled_codes = sampling_codes;
     }
 
-    // std::cout << "initializing ..." << std::endl;
     initialize_centroids(n, sampled_codes);
 
     for (int iter = 0; iter < cp.niter; ++iter) {
-        // std::cout << "updating " << iter << " ..." << std::endl;
         update_centroids(n, sampled_codes);
     }
 
     // 注意：如果sampled_codes是新分配的，需要在这里释放内存
-    if (sampled_codes != candidate_codes) {
-        delete[] sampled_codes;
+    if (sampling_codes) {
+        delete[] sampling_codes;
     }
 }
 
-void Clustering::subsample_training_set(size_t& n, const float* candidate_codes, float*& sampled_codes) {
+void Clustering::subsample_training_set(size_t& n, const float* candidate_codes, float*& sampling_codes) {
     size_t max_samples = nlist * cp.max_points_per_centroid;
     if (n <= max_samples) {
         // 如果数据点数量小于或等于最大样本数，不需要采样
@@ -49,9 +45,9 @@ void Clustering::subsample_training_set(size_t& n, const float* candidate_codes,
 
     std::shuffle(indices.begin(), indices.end(), std::default_random_engine(cp.seed));  // 随机打乱索引
 
-    sampled_codes = new float[max_samples * d];
+    sampling_codes = new float[max_samples * d];
     for (size_t i = 0; i < max_samples; ++i) {
-        std::copy_n(candidate_codes + indices[i] * d, d, sampled_codes + i * d);
+        std::copy_n(candidate_codes + indices[i] * d, d, sampling_codes + i * d);
     }
 
     n = max_samples;  // 更新数据点数量
@@ -134,9 +130,10 @@ void Clustering::initialize_centroids(size_t n, const float* sampled_codes) {
         std::vector<double> distances(n);
         double total_distance = 0.0;
 
+#pragma omp parallel for reduction(+ : total_distance)
         for (size_t j = 0; j < n; ++j) {
             double min_dist = std::numeric_limits<double>::max();
-            for (size_t idx : chosen_indices) {
+            for (size_t idx = 0; idx < chosen_indices.size(); ++idx) {
                 double dist = 0.0;
                 for (size_t k = 0; k < d; ++k) {
                     double diff = sampled_codes[j * d + k] - centroids[idx * d + k];

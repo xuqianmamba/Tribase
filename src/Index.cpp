@@ -1,5 +1,6 @@
 #include "Index.h"
 #include <omp.h>
+#include <atomic>
 #include <cmath>
 #include <memory>
 #include "IVF.h"
@@ -12,12 +13,12 @@
 
 namespace tribase {
 
-Index::Index(size_t d, size_t nlist, size_t nprobe, MetricType metric, OptLevel opt_level, size_t sub_k, size_t sub_nlist, size_t sub_nprobe)
-    : d(d), nlist(nlist), nprobe(nprobe), metric(metric), opt_level(opt_level), sub_k(sub_k), sub_nlist(sub_nlist), sub_nprobe(sub_nprobe) {
+Index::Index(size_t d, size_t nlist, size_t nprobe, MetricType metric, OptLevel opt_level, size_t sub_k, size_t sub_nlist, size_t sub_nprobe, bool is_sub_index)
+    : d(d), nlist(nlist), nprobe(nprobe), metric(metric), opt_level(opt_level), sub_k(sub_k), sub_nlist(sub_nlist), sub_nprobe(sub_nprobe), is_sub_index(is_sub_index) {
     lists = std::make_unique<IVF[]>(nlist);
     // lists.resize(nlist);
     centroid_codes = std::make_unique<float[]>(nlist * d);
-    centroid_ids = std::make_unique<idx_t[]>(nprobe);
+    centroid_ids = std::make_unique<idx_t[]>(nlist);
     std::iota(centroid_ids.get(), centroid_ids.get() + nlist, 0);
 }
 
@@ -174,8 +175,6 @@ void Index::add(size_t n, const float* codes) {
 
     {
         size_t total_processd = 0;
-        size_t total_add = 0;
-        size_t target_add = 0;
 
         size_t true_train_count = 0;
         size_t all_train_count = 0;
@@ -188,13 +187,6 @@ void Index::add(size_t n, const float* codes) {
         size_t total_sub_recall_l2_point_10 = 0;
 
         Stopwatch logwatch;
-        if (opt_level & OptLevel::OPT_SUBNN_IP) {
-            target_add += n;
-        }
-        if (opt_level & OptLevel::OPT_SUBNN_L2) {
-            target_add += n;
-        }
-        // const size_t ADD_BATCH_SIZE = 10000;
 
         double train_elapsed = 0;
         double add_elapsed = 0;
@@ -202,42 +194,47 @@ void Index::add(size_t n, const float* codes) {
         double log_interval = 2;
 
         [[maybe_unused]] auto running_log = [&]() -> void {
-            if (logwatch.elapsedSeconds() > log_interval || total_add == target_add) {
-                logwatch.reset();
-                printf("add: %.3f%%    build: %.2f%%\n", target_add ? 100.0 * total_add / target_add : 0, 100.0 * total_processd / nlist);
-                double total_elapsed = train_elapsed + add_elapsed + search_elapsed;
-                double train_percent = 100.0 * train_elapsed / total_elapsed;
-                double add_percent = 100.0 * add_elapsed / total_elapsed;
-                double search_percent = 100.0 * search_elapsed / total_elapsed;
-                printf("train: %.2f%% (%.2f%%)    add: %.2f%%    search: %.2f%%    total: %.2f\n",
-                       train_percent,
-                       all_train_count ? 100.0 * true_train_count / all_train_count : 1,
-                       add_percent,
-                       search_percent,
-                       total_elapsed);
-                float sub_recall_ip = total_sub_count_ip ? 100.0 * total_sub_recall_ip / total_sub_count_ip : 0;
-                float sub_recall_l2 = total_sub_count_l2 ? 100.0 * total_sub_recall_l2 / total_sub_count_l2 : 0;
-                float sub_recall_ip_point_10 = total_sub_count_ip ? 1000.0 * total_sub_recall_ip_point_10 / total_sub_count_ip : 0;
-                float sub_recall_l2_point_10 = total_sub_count_l2 ? 1000.0 * total_sub_recall_l2_point_10 / total_sub_count_l2 : 0;
-                printf("Recall    ip 1/10: %.2f%%    ip: %.2f%%    l2 1/10: %.2f%%    l2: %.2f%%    %ld/%ld\n",
-                       sub_recall_ip_point_10,
-                       sub_recall_ip,
-                       sub_recall_l2_point_10,
-                       sub_recall_l2,
-                       sub_nprobe,
-                       sub_nlist);
+            if (!is_sub_index) {
+                if (logwatch.elapsedSeconds() > log_interval) {
+                    std::cout << logwatch.elapsedSeconds() << " " << log_interval << std::endl;
+                    logwatch.reset();
+                    printf("build: %.2f%%\n", 100.0 * total_processd / nlist);
+                    double total_elapsed = train_elapsed + add_elapsed + search_elapsed;
+                    double train_percent = 100.0 * train_elapsed / total_elapsed;
+                    double add_percent = 100.0 * add_elapsed / total_elapsed;
+                    double search_percent = 100.0 * search_elapsed / total_elapsed;
+                    printf("train: %.2f%% (%.2f%%)    add: %.2f%%    search: %.2f%%    total: %.2f\n",
+                           train_percent,
+                           all_train_count ? 100.0 * true_train_count / all_train_count : 1,
+                           add_percent,
+                           search_percent,
+                           total_elapsed);
+                    float sub_recall_ip = total_sub_count_ip ? 100.0 * total_sub_recall_ip / total_sub_count_ip : 0;
+                    float sub_recall_l2 = total_sub_count_l2 ? 100.0 * total_sub_recall_l2 / total_sub_count_l2 : 0;
+                    float sub_recall_ip_point_10 = total_sub_count_ip ? 1000.0 * total_sub_recall_ip_point_10 / total_sub_count_ip : 0;
+                    float sub_recall_l2_point_10 = total_sub_count_l2 ? 1000.0 * total_sub_recall_l2_point_10 / total_sub_count_l2 : 0;
+                    printf("Recall    ip 1/10: %.2f%%    ip: %.2f%%    l2 1/10: %.2f%%    l2: %.2f%%    %ld/%ld\n",
+                           sub_recall_ip_point_10,
+                           sub_recall_ip,
+                           sub_recall_l2_point_10,
+                           sub_recall_l2,
+                           sub_nprobe,
+                           sub_nlist);
+                }
             }
         };
 
         [[maybe_unused]] auto end_log = [&]() -> void {
-            double total_elapsed = train_elapsed + add_elapsed + search_elapsed;
-            printf("add: 100.0%%    build: 100.0%%\n");
-            printf("train: %.2f (%.2f%%)    add: %.2f    search: %.2f    total: %.2f\n",
-                   train_elapsed,
-                   100.0 * true_train_count / all_train_count,
-                   add_elapsed,
-                   search_elapsed,
-                   total_elapsed);
+            if (!is_sub_index) {
+                double total_elapsed = train_elapsed + add_elapsed + search_elapsed;
+                printf("add: 100.0%%    build: 100.0%%\n");
+                printf("train: %.2f (%.2f%%)    add: %.2f    search: %.2f    total: %.2f\n",
+                       train_elapsed,
+                       100.0 * true_train_count / all_train_count,
+                       add_elapsed,
+                       search_elapsed,
+                       total_elapsed);
+            }
         };
 
 #pragma omp parallel for
@@ -255,13 +252,16 @@ void Index::add(size_t n, const float* codes) {
             const float* centroid_code = centroid_codes.get() + listid * d;
 
             if (opt_level & OptLevel::OPT_SUBNN_L2) {
-                Index sub_index(d, this_sub_nlist_L2, this_sub_nprobe_L2, MetricType::METRIC_L2, OptLevel::OPT_NONE, sub_k);
+                Index sub_index(d, this_sub_nlist_L2, this_sub_nprobe_L2, MetricType::METRIC_L2, OptLevel::OPT_NONE, 0, 0, 0, true);
                 Stopwatch watch;
                 sub_index.train(nb, xb);
+#pragma omp atomic
                 train_elapsed += watch.elapsedSeconds(true);
                 sub_index.add(nb, xb);
+#pragma omp atomic
                 add_elapsed += watch.elapsedSeconds(true);
                 sub_index.search(nb, xb, sub_k, list.sub_nearest_L2_dis.get(), list.sub_nearest_L2_id.get());
+#pragma omp atomic
                 search_elapsed += watch.elapsedSeconds(true);
 
                 if (true) {
@@ -305,13 +305,16 @@ void Index::add(size_t n, const float* codes) {
                         }
                     }
                 }
-                Index sub_index(d, this_sub_nlist_IP, this_sub_nprobe_IP, MetricType::METRIC_IP, OptLevel::OPT_NONE, sub_k);
+                Index sub_index(d, this_sub_nlist_IP, this_sub_nprobe_IP, MetricType::METRIC_IP, OptLevel::OPT_NONE, 0, 0, 0, true);
                 Stopwatch watch;
                 sub_index.train(nb, norm_xb);
+#pragma omp atomic
                 train_elapsed += watch.elapsedSeconds(true);
                 sub_index.add(nb, norm_xb);
+#pragma omp atomic
                 add_elapsed += watch.elapsedSeconds(true);
                 sub_index.search(nb, norm_xb, sub_k, list.sub_nearest_IP_dis.get(), list.sub_nearest_IP_id.get());
+#pragma omp atomic
                 search_elapsed += watch.elapsedSeconds(true);
 
                 if (true) {
@@ -339,12 +342,12 @@ void Index::add(size_t n, const float* codes) {
                 for (size_t j = 0; j < nb * d; j++) {
                     norm_xb[j] = -norm_xb[j];
                 }
-                
+
                 watch.reset();
                 sub_index.search(nb, norm_xb, sub_k, list.sub_farest_IP_dis.get(), list.sub_farest_IP_id.get());
                 search_elapsed += watch.elapsedSeconds(true);
 
-                for (size_t j = 0; j < sub_k; j++) {
+                for (size_t j = 0; j < nb * sub_k; j++) {
                     list.sub_farest_IP_dis[j] = -list.sub_farest_IP_dis[j];
                 }
             }
