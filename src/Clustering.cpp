@@ -1,15 +1,15 @@
 #include "Clustering.h"
 
 #include <omp.h>
-#include <chrono>
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <limits>
 
 namespace tribase {
 
-Clustering::Clustering(size_t d, size_t nlist, const ClusteringParameters& cp)
-    : d(d), nlist(nlist), cp(cp), centroids(nlist * d, 0.0f) {}
+Clustering::Clustering(size_t d, size_t nlist, bool verbose, const ClusteringParameters& cp)
+    : d(d), nlist(nlist), verbose(verbose), cp(cp), centroids(nlist * d, 0.0f) {}
 
 void Clustering::train(size_t n, const float* candidate_codes) {
     float* sampling_codes = nullptr;
@@ -34,7 +34,9 @@ void Clustering::train(size_t n, const float* candidate_codes) {
     std::cout << "initialize_centroids 耗时: " << elapsed.count() << " ms\n";
 
     for (int iter = 0; iter < cp.niter; ++iter) {
-        std::cout << "Iteration " << iter + 1 << " of " << cp.niter << std::endl;
+        if (verbose) {
+            std::cout << "Iteration " << iter + 1 << " of " << cp.niter << std::endl;
+        }
         update_centroids(n, sampled_codes);
     }
 
@@ -57,6 +59,8 @@ void Clustering::subsample_training_set(size_t& n, const float* candidate_codes,
     std::shuffle(indices.begin(), indices.end(), std::default_random_engine(cp.seed));  // 随机打乱索引
 
     sampling_codes = new float[max_samples * d];
+
+#pragma omp parallel for
     for (size_t i = 0; i < max_samples; ++i) {
         std::copy_n(candidate_codes + indices[i] * d, d, sampling_codes + i * d);
     }
@@ -138,10 +142,13 @@ void Clustering::initialize_centroids(size_t n, const float* sampled_codes) {
     centroids.assign(sampled_codes + first_index * d, sampled_codes + (first_index + 1) * d);
 
     for (size_t i = 1; i < nlist; ++i) {
+        if (verbose) {
+            std::cout << "init " << i << " of " << nlist << std::endl;
+        }
         std::vector<double> distances(n);
         double total_distance = 0.0;
 
-        #pragma omp parallel for reduction(+:total_distance)
+#pragma omp parallel for reduction(+ : total_distance)
         for (size_t j = 0; j < n; ++j) {
             double min_dist = std::numeric_limits<double>::max();
             for (size_t idx = 0; idx < chosen_indices.size(); ++idx) {
@@ -295,7 +302,7 @@ void Clustering::update_centroids(size_t n, const float* sampled_codes) {
 
     std::vector<size_t> counts(nlist, 0);
     Eigen::MatrixXf new_centroids = Eigen::MatrixXf::Zero(d, nlist);
-    #pragma omp parallel for
+#pragma omp parallel for
     for (size_t i = 0; i < n; ++i) {
         size_t closest_centroid = 0;
         float min_dist = std::numeric_limits<float>::max();
@@ -307,10 +314,10 @@ void Clustering::update_centroids(size_t n, const float* sampled_codes) {
             }
         }
 
-        #pragma omp atomic
+#pragma omp atomic
         counts[closest_centroid]++;
 
-        #pragma omp critical
+#pragma omp critical
         {
             new_centroids.col(closest_centroid) += codes.col(i);
         }

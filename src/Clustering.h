@@ -19,7 +19,7 @@ struct ClusteringParameters {
 
 class Clustering {
    public:
-    Clustering(size_t d, size_t nlist, const ClusteringParameters& cp = ClusteringParameters());
+    Clustering(size_t d, size_t nlist, bool verbose = false, const ClusteringParameters& cp = ClusteringParameters());
     void train(size_t n, const float* candidate_codes);
     float* get_centroids() const;
     void get_centroids(float* centroid_codes) const;
@@ -27,6 +27,7 @@ class Clustering {
    private:
     size_t d;
     size_t nlist;
+    bool verbose;
     ClusteringParameters cp;
 
     std::vector<float> centroids;

@@ -13,8 +13,8 @@
 
 namespace tribase {
 
-Index::Index(size_t d, size_t nlist, size_t nprobe, MetricType metric, OptLevel opt_level, size_t sub_k, size_t sub_nlist, size_t sub_nprobe, bool is_sub_index)
-    : d(d), nlist(nlist), nprobe(nprobe), metric(metric), opt_level(opt_level), sub_k(sub_k), sub_nlist(sub_nlist), sub_nprobe(sub_nprobe), is_sub_index(is_sub_index) {
+Index::Index(size_t d, size_t nlist, size_t nprobe, MetricType metric, OptLevel opt_level, size_t sub_k, size_t sub_nlist, size_t sub_nprobe, bool verbose)
+    : d(d), nlist(nlist), nprobe(nprobe), metric(metric), opt_level(opt_level), sub_k(sub_k), sub_nlist(sub_nlist), sub_nprobe(sub_nprobe), verbose(verbose) {
     lists = std::make_unique<IVF[]>(nlist);
     centroid_codes = std::make_unique<float[]>(nlist * d);
     centroid_ids = std::make_unique<idx_t[]>(nlist);
@@ -29,7 +29,7 @@ void Index::train(size_t n, const float* codes) {
     cp.seed = 6666;                    // 或其他合适的值
     cp.max_points_per_centroid = 256;  // 或其他合适的值
 
-    Clustering clustering(this->d, this->nlist, cp);
+    Clustering clustering(this->d, this->nlist, verbose, cp);
     clustering.train(n, codes);
 
     this->centroid_codes.reset(clustering.get_centroids());
@@ -184,7 +184,7 @@ void Index::add(size_t n, const float* codes) {
         double log_interval = 2;
 
         [[maybe_unused]] auto running_log = [&]() -> void {
-            if (!is_sub_index) {
+            if (!verbose) {
                 if (logwatch.elapsedSeconds() > log_interval) {
                     std::cout << logwatch.elapsedSeconds() << " " << log_interval << std::endl;
                     logwatch.reset();
@@ -215,7 +215,7 @@ void Index::add(size_t n, const float* codes) {
         };
 
         [[maybe_unused]] auto end_log = [&]() -> void {
-            if (!is_sub_index) {
+            if (!verbose) {
                 double total_elapsed = train_elapsed + add_elapsed + search_elapsed;
                 printf("add: 100.0%%    build: 100.0%%\n");
                 printf("train: %.2f (%.2f%%)    add: %.2f    search: %.2f    total: %.2f\n",

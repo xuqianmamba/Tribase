@@ -19,7 +19,7 @@ class Index {
           size_t sub_k = 0,
           size_t sub_nlist = 1,
           size_t sub_nprobe = 1,
-          bool is_sub_index = false);
+          bool verbose = false);
 
     void train(size_t n, const float* codes);
 
@@ -49,7 +49,7 @@ class Index {
     size_t sub_nlist;
     size_t sub_nprobe;
 
-    bool is_sub_index;
+    bool verbose;
 
     std::unique_ptr<IVF[]> lists;
     std::unique_ptr<float[]> centroid_codes;

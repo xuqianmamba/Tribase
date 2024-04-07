@@ -17,7 +17,7 @@ int main() {
     //     }
     //     printf("\n");
     // }
-    Clustering clustering(d, 3, cp);
+    Clustering clustering(d, 3, true, cp);
     clustering.train(n, data.get());
     std::unique_ptr<float[]> centroids = std::make_unique<float[]>(3 * d);
     clustering.get_centroids(centroids.get());
