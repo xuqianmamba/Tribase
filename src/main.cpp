@@ -4,6 +4,9 @@
 #include <iomanip>
 #include <iostream>
 #include <memory>
+
+#include <faiss/IndexFlat.h>
+#include <faiss/IndexIVFFlat.h>
 #include "tribase.h"
 #include "utils.h"
 using namespace tribase;
@@ -55,10 +58,18 @@ int main(int argc, char* argv[]) {
     std::cout << "search time: " << sw.elapsedSeconds(true) << "s" << std::endl;
     writeResultsToFile(labels.get(), distances.get(), nq, k, output_file);
     std::cout << "write time: " << sw.elapsedSeconds(true) << "s" << std::endl;
-    // for (size_t i = 0; i < nq; i++) {
-    //     for (size_t j = 0; j < k; j++) {
-    //         std::cout << std::format("({},{})", distances[i * k + j], labels[i * k + j]) << " ";
-    //     }
-    //     std::cout << std::endl;
-    // }
+
+    faiss::IndexFlatL2 quantizer(d);
+    faiss::IndexIVFFlat index2(&quantizer, d, nlist);
+    index2.nprobe = nprobe;
+    std::unique_ptr<idx_t[]> I(new idx_t[k * nq]);
+    std::unique_ptr<float[]> D(new float[k * nq]);
+    Stopwatch sw2;
+    index2.train(nb, base.get());
+    std::cout << "train time: " << sw2.elapsedSeconds(true) << "s" << std::endl;
+    index2.add(nb, base.get());
+    std::cout << "add time: " << sw2.elapsedSeconds(true) << "s" << std::endl;
+    index2.search(nq, query.get(), k, D.get(), I.get());
+    std::cout << "search time: " << sw2.elapsedSeconds(true) << "s" << std::endl;
+    writeResultsToFile(I.get(), D.get(), nq, k, output_file + ".faiss");
 }

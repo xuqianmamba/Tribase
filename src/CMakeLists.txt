@@ -11,6 +11,6 @@ add_library(Tribase STATIC ${SRC_FILES})
 target_link_libraries(Tribase PUBLIC OpenMP::OpenMP_CXX)
 
 add_executable(main main.cpp)
-target_link_libraries(main Tribase)
+target_link_libraries(main Tribase faiss)
 
 add_subdirectory(tests)

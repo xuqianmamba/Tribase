@@ -18,10 +18,11 @@ find_package(OpenMP REQUIRED)
 find_package(GTest REQUIRED)
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -g -fsanitize=address -Wall -Wextra ${OpenMP_CXX_FLAGS}") # -Wpedantic -Werror
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -g -Wall -Wextra ${OpenMP_CXX_FLAGS}") # -Wpedantic -Werror -fsanitize=address
 elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -Wall -Wextra ${OpenMP_CXX_FLAGS}") # -Wpedantic -Werror
 endif()
 
 include_directories(${CMAKE_SOURCE_DIR}/third_party)
+add_subdirectory(third_party/faiss_pan)
 add_subdirectory(src)

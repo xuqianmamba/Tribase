@@ -9,3 +9,6 @@ target_link_libraries(scan_test ${GTEST_LIBRARIES} ${GTEST_MAIN_LIBRARIES} pthre
 
 add_executable(cluster_test cluster_test.cpp ../Clustering.cpp)
 target_link_libraries(cluster_test ${GTEST_LIBRARIES} ${GTEST_MAIN_LIBRARIES} pthread)
+
+add_executable(faiss_test faiss_test.cpp)
+target_link_libraries(faiss_test ${GTEST_LIBRARIES} ${GTEST_MAIN_LIBRARIES} pthread faiss)
