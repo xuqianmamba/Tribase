@@ -4,6 +4,8 @@
 #include "stats.h"
 #include "utils.h"
 
+#define FEPS 1e-6
+
 namespace tribase {
 
 class IVFScanBase {
@@ -103,6 +105,26 @@ class IVFScan : public IVFScanBase {
         float point5_times_inv_sqrt_centroid2query;
         float sqrt_simi;
 
+        auto dis_calculator = [](const float* vec1, const float* vec2, size_t size) {
+            if constexpr (metric == MetricType::METRIC_IP) {
+                return calculatedInnerProduct(vec1, vec2, size);
+            } else if constexpr (metric == MetricType::METRIC_L2) {
+                return calculatedEuclideanDistance(vec1, vec2, size);
+            } else {
+                static_assert(false, "Unsupported metric type");
+            }
+        };
+
+        auto dis_comparator = [](float dis, float simi) {
+            if constexpr (metric == MetricType::METRIC_IP) {
+                return dis > simi;
+            } else if constexpr (metric == MetricType::METRIC_L2) {
+                return dis < simi;
+            } else {
+                static_assert(false, "Unsupported metric type");
+            }
+        };
+
         if constexpr (opt_level & OptLevel::OPT_SUBNN_IP) {
             max_radius = candicate2centroid[scan_end - 1];
             max_radius_plus_centroid2query = max_radius + centroid2query;
@@ -125,37 +147,24 @@ class IVFScan : public IVFScanBase {
                 continue;
             }
             const float* candicate = codes + i * d;
-            float dis = 0;
+            float dis = dis_calculator(query, candicate, d);
 
-            if constexpr (metric == MetricType::METRIC_IP) {
-                dis = calculatedInnerProduct(query, candicate, d);
-            } else if constexpr (metric == MetricType::METRIC_L2) {
-                dis = calculatedEuclideanDistance(query, candicate, d);
-            } else {
-                static_assert(false, "Unsupported metric type");
-            }
+            if (dis_comparator(dis, simi[0])) {
+                idx_t id = ids[i];
+                heap_replace_top<metric>(k, simi, idxi, dis, id);
 
-            if constexpr (metric == MetricType::METRIC_L2) {
-                if (dis < simi[0]) {
-                    idx_t id = ids[i];
-                    heap_replace_top<metric>(k, simi, idxi, dis, id);
-                    if constexpr (opt_level & OptLevel::OPT_SUBNN_IP) {
-                        if (max_radius + simi[0] >= centroid2query) {
-                            diff_cos = sqrt(centroid2query - simi[0]) * inv_sqrt_centroid2query;
-                        } else {
-                            diff_cos = (max_radius_plus_centroid2query - simi[0]) *
-                                       inv_two_times_sqrt_max_radius_times_centroid2query;
-                        }
-                        diff_sin = sqrt(1 - diff_cos * diff_cos);
+                if constexpr (opt_level & OptLevel::OPT_SUBNN_IP) {
+                    if (max_radius + simi[0] >= centroid2query) {
+                        diff_cos = sqrt(centroid2query - simi[0]) * inv_sqrt_centroid2query;
+                    } else {
+                        diff_cos = (max_radius_plus_centroid2query - simi[0]) *
+                                   inv_two_times_sqrt_max_radius_times_centroid2query;
                     }
-
-                    if constexpr (opt_level & OptLevel::OPT_SUBNN_L2) {
-                        sqrt_simi = sqrt(simi[0]);
-                    }
+                    diff_sin = sqrt(1 - diff_cos * diff_cos);
                 }
-            } else {
-                if (dis > simi[0]) {
-                    heap_replace_top<metric>(k, simi, idxi, dis, ids[i]);
+
+                if constexpr (opt_level & OptLevel::OPT_SUBNN_L2) {
+                    sqrt_simi = sqrt(simi[0]);
                 }
             }
 
@@ -176,10 +185,19 @@ class IVFScan : public IVFScanBase {
                         }
                         size_t skip_fake_id_begin = i * sub_k;
                         size_t skip_fake_id_end = skip_fake_id_begin + sub_k;
+                        skip_fake_id_begin += 1;
                         for (size_t skip_fake_id = skip_fake_id_begin; skip_fake_id < skip_fake_id_end;
                              skip_fake_id++) {
                             size_t skip_true_id = nearest_IP_id[skip_fake_id];
                             if (skip_true_id > 0 && nearest_IP_dis[skip_fake_id] > cut_degree_cos_minus) {
+#ifdef CORRECTNESS_CHECK
+                                float true_dis = dis_calculator(query, codes + skip_true_id * d, d);
+#pragma omp critical
+                                if (true_dis < simi[0]) {
+                                    std::cerr << "Error: " << true_dis << " " << dis << " " << nearest_IP_dis[skip_fake_id] << std::endl;
+                                    throw std::runtime_error("SUBNN_IP_NEAREST_ERROR");
+                                }
+#endif
                                 IF_STATS {
                                     if (!if_skip[skip_true_id] && i < skip_true_id) {
                                         stats->skip_subnn_IP_count++;
@@ -200,6 +218,17 @@ class IVFScan : public IVFScanBase {
                              skip_fake_id++) {
                             size_t skip_true_id = farest_IP_id[skip_fake_id];
                             if (skip_true_id > 0 && farest_IP_dis[skip_fake_id] < cut_degree_cos_plus) {
+#ifdef CORRECTNESS_CHECK
+                                float true_dis = dis_calculator(query, codes + skip_true_id * d, d);
+#pragma omp critical
+                                if (true_dis < simi[0]) {
+                                    std::cerr << "Error: " << true_dis << " " << simi[0] << " " << dis << " " << farest_IP_dis[skip_fake_id] << " " << cut_degree_cos_plus << std::endl;
+                                    output_codes(codes + i * d, d);
+                                    output_codes(codes + skip_true_id * d, d);
+                                    // throw std::runtime_error("SUBNN_IP_FAREST_ERROR");
+                                    assert(false);
+                                }
+#endif
                                 IF_STATS {
                                     if (!if_skip[skip_true_id] && i < skip_true_id) {
                                         stats->skip_subnn_IP_count++;
@@ -218,30 +247,40 @@ class IVFScan : public IVFScanBase {
             }
 
             if (opt_level & OptLevel::OPT_SUBNN_L2) {
-#ifdef DEBUG
-                stats->check_subnn_L2_count += 2;
-#endif
+                IF_STATS {
+                    stats->check_subnn_L2_count += 2;
+                }
                 size_t skip_fake_id_begin = i * sub_k;
                 size_t skip_fake_id_end = skip_fake_id_begin + sub_k;
+                skip_fake_id_begin += 1;
                 for (size_t skip_fake_id = skip_fake_id_begin; skip_fake_id < skip_fake_id_end; skip_fake_id++) {
                     float tmp_plus = nearest_L2_dis[skip_fake_id] + sqrt_simi;
                     size_t skip_true_id = nearest_L2_id[skip_fake_id];
                     if (skip_true_id > 0 && dis > tmp_plus * tmp_plus) {  // already sqrt nearest_L2_dis
-#ifdef DEBUG
-                        if (!if_skip[skip_true_id] && i < skip_true_id) {
-                            stats->skip_subnn_L2_count++;
+
+#ifdef CORRECTNESS_CHECK
+                        float true_dis = dis_calculator(query, codes + skip_true_id * d, d);
+#pragma omp critical
+                        if (true_dis < simi[0]) {
+                            std::cerr << "Error: " << true_dis << " " << dis << " " << nearest_L2_id[skip_fake_id] << std::endl;
+                            throw std::runtime_error("SUBNN_L2_NEAREST_ERROR");
                         }
 #endif
+                        IF_STATS {
+                            if (!if_skip[skip_true_id] && i < skip_true_id) {
+                                stats->skip_subnn_L2_count++;
+                            }
+                        }
                         if_skip[skip_true_id] = true;
                     } else {
-#ifdef DEBUG
-                        stats->check_subnn_L2_ele_count += skip_fake_id - skip_fake_id_begin;
-#endif
+                        IF_STATS {
+                            stats->check_subnn_L2_ele_count += skip_fake_id - skip_fake_id_begin;
+                        }
                         break;
                     }
                 }
             }
         }
     };
-};
+};  // namespace tribase
 }  // namespace tribase

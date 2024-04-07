@@ -21,6 +21,8 @@ class Index {
           size_t sub_nprobe = 1,
           bool verbose = false);
 
+    Index& operator=(Index&& other) noexcept;
+
     void train(size_t n, const float* codes);
 
     void single_thread_nearest_cluster_search(size_t n, const float* queries, float* distances, idx_t* labels);

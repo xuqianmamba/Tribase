@@ -9,6 +9,7 @@
 #include <memory>
 #include <stdexcept>
 #include <tuple>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -211,25 +212,123 @@ inline void prepareDirectory(const std::string& filePath) {
 
 inline void writeResultsToFile(const idx_t* labels, const float* distances, size_t nq, size_t k, std::string filePath) {
     prepareDirectory(filePath);
-    std::ofstream outFile(filePath);
 
-    if (!outFile.is_open()) {
-        std::cerr << "无法打开文件：" << filePath << std::endl;
-        return;
+    if (filePath.ends_with("txt")) {
+        std::ofstream outFile(filePath);
+        if (!outFile.is_open()) {
+            std::cerr << std::format("Failed to open file: {}", filePath) << std::endl;
+            return;
+        }
+        for (size_t i = 0; i < nq; ++i) {
+            for (size_t j = 0; j < k; ++j) {
+                outFile << labels[i * k + j] << " " << std::fixed << std::setprecision(6) << distances[i * k + j];
+                if (j < k - 1) {
+                    outFile << " ";
+                }
+            }
+            outFile << "\n";
+        }
+        outFile.close();
+    } else {
+        std::ofstream outFile(filePath, std::ios::binary);
+        if (!outFile.is_open()) {
+            std::cerr << std::format("Failed to open file: {}", filePath) << std::endl;
+            return;
+        }
+        outFile.write(reinterpret_cast<const char*>(labels), nq * k * sizeof(idx_t));
+        outFile.write(reinterpret_cast<const char*>(distances), nq * k * sizeof(float));
+        outFile.close();
     }
+}
 
-    for (size_t i = 0; i < nq; ++i) {
-        for (size_t j = 0; j < k; ++j) {
-            // 先写入id，然后写入distance
-            outFile << labels[i * k + j] << " " << std::fixed << std::setprecision(6) << distances[i * k + j];
-            if (j < k - 1) {
-                outFile << " ";  // 在同一行内的元素之间添加空格
+inline void loadResults(const std::string& filePath, idx_t* labels, float* distances, size_t nq, size_t k) {
+    if (filePath.ends_with("txt")) {
+        std::ifstream inFile(filePath);
+        if (!inFile.is_open()) {
+            std::cerr << std::format("Failed to open file: {}", filePath) << std::endl;
+            return;
+        }
+        for (size_t i = 0; i < nq; ++i) {
+            for (size_t j = 0; j < k; ++j) {
+                inFile >> labels[i * k + j] >> distances[i * k + j];
             }
         }
-        outFile << "\n";  // 每个向量的结果结束后换行
+        inFile.close();
+        // throw std::invalid_argument("Reading txt files is not supported.");
+    } else {
+        std::ifstream inFile(filePath, std::ios::binary);
+        if (!inFile.is_open()) {
+            std::cerr << std::format("Failed to open file: {}", filePath) << std::endl;
+            return;
+        }
+        inFile.read(reinterpret_cast<char*>(labels), nq * k * sizeof(idx_t));
+        inFile.read(reinterpret_cast<char*>(distances), nq * k * sizeof(float));
+        inFile.close();
     }
+}
 
-    outFile.close();
+inline float calculate_recall(const idx_t* I, const float* D, const idx_t* GT, const float* GD, size_t nq, size_t k, MetricType metric, size_t gt_k = 0) {
+    if (gt_k == 0) {
+        gt_k = k;
+    }
+    size_t correct = 0;
+    if (k > gt_k) {
+        throw std::invalid_argument("k should be less than or equal to gt_k.");
+    }
+    // for (size_t i = 0; i < nq; ++i) {
+    //     std::unordered_set<idx_t> groundtruth(GT + i * gt_k, GT + i * gt_k + k);
+    //     for (size_t j = 0; j < k; ++j) {
+    //         if (I[i * k + j] == -1) {
+    //             break;
+    //         }
+    //         if (groundtruth.find(I[i * k + j]) != groundtruth.end()) {
+    //             correct++;
+    //         }
+    //     }
+    // }
+    if (metric == MetricType::METRIC_L2) {
+        for (size_t i = 0; i < nq; ++i) {
+            float topK = std::numeric_limits<float>::max();
+            size_t ii = k - 1;
+            while (GD[i * gt_k + ii] == -1) {
+                ii--;
+            }
+            topK = GD[i * gt_k + ii];
+            for (size_t j = 0; j < k; ++j) {
+                if (I[i * k + j] == -1) {
+                    break;
+                }
+                if (D[i * k + j] <= topK) {
+                    correct++;
+                }
+            }
+        }
+    } else {
+        for (size_t i = 0; i < nq; ++i) {
+            float topK = std::numeric_limits<float>::lowest();
+            size_t ii = k - 1;
+            while (GD[i * gt_k + ii] == -1) {
+                ii--;
+            }
+            topK = GD[i * gt_k + ii];
+            for (size_t j = 0; j < k; ++j) {
+                if (I[i * k + j] == -1) {
+                    break;
+                }
+                if (D[i * k + j] >= topK) {
+                    correct++;
+                }
+            }
+        }
+    }
+    return static_cast<float>(correct) / (nq * k);
+}
+
+inline void output_codes(const float* codes, size_t d) {
+    for (size_t i = 0; i < d; ++i) {
+        std::cerr << codes[i] << " ";
+    }
+    std::cerr << std::endl;
 }
 
 }  // namespace tribase

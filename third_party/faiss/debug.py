@@ -146,7 +146,7 @@ def set_opt_level(level=0b1111):
         text += "SubKnnCos "
     else:
         os.environ["DISABLE_SUB_KNN_COS"] = "1"
-    
+
     os.environ["OPT_LEVEL"] = str(level)
 
     return "Enabled:" + text
@@ -159,9 +159,9 @@ def test_main(
     nprobe_list=[],
     opt_levels=[],
     sub_k=100,
-    sub_nlist = 20,
-    sub_nprobe = 1,
-    sub_sample = 0.1,
+    sub_nlist=20,
+    sub_nprobe=1,
+    sub_sample=0.1,
     train_only=False,
     loops=10,
 ):
@@ -178,7 +178,6 @@ def test_main(
     # 对 opt_levels 求二进制或
     max_opt_level = reduce(or_, opt_levels)
     set_opt_level(max_opt_level)
-    print(f"train_opt_level: {max_opt_level}")
 
     xb = load_vecs(base_path)
     xq = load_vecs(query_path)
@@ -262,7 +261,9 @@ def test_main(
                         continue
                     # if nprobe > max_nprobe and opt_level == 0b0000: # only skip faiss, not ours
                     #     continue
-                    if not (nprobe == nlist and opt_level == 0 and groundtruth_generate_time):
+                    if not (
+                        nprobe == nlist and opt_level == 0 and groundtruth_generate_time
+                    ):
                         index.nprobe = nprobe
                         start = time.time()
                         D, I = index.search(xq, k)
@@ -389,11 +390,15 @@ def analyze(df: pd.DataFrame):
     df = df.copy()
     df = df[np.isclose(df["avg_similarity"], 1)]
 
-    idx = sum(df.groupby(["dataset", "nlist", "opt_level"], group_keys=False)
-    .apply(
-        lambda x: [x["nprobe"].idxmin(), x["nprobe"].idxmax()], include_groups=False
+    idx = sum(
+        df.groupby(["dataset", "nlist", "opt_level"], group_keys=False)
+        .apply(
+            lambda x: [x["nprobe"].idxmin(), x["nprobe"].idxmax()], include_groups=False
+        )
+        .reset_index(drop=True)
+        .values,
+        [],
     )
-    .reset_index(drop=True).values, [])
 
     df = df.loc[idx].reindex()
 
@@ -404,18 +409,18 @@ def analyze(df: pd.DataFrame):
         "skip_total",
         df.iloc[:, skip_start_col_index:skip_end_col_index].sum(axis=1),
     )
-    
+
     df.iloc[:, skip_start_col_index:skip_end_col_index] = df.iloc[
         :, skip_start_col_index:skip_end_col_index
     ].values / df["skip_total"].apply(lambda x: x if x > 0 else 1).values.reshape(-1, 1)
-    
-    df.iloc[:, skip_start_col_index:skip_end_col_index] = \
-    df.iloc[
+
+    df.iloc[:, skip_start_col_index:skip_end_col_index] = df.iloc[
         :, skip_start_col_index:skip_end_col_index
     ].map(lambda x: f"{x:.2%}" if x > 0 else "-")
 
     df.drop(["avg_similarity", "skip_total", "total_count"], axis=1, inplace=True)
     return df
+
 
 def precheck_datasets(datasets):
     for dataset in datasets:
@@ -430,7 +435,8 @@ def precheck_datasets(datasets):
             return False
     return True
 
-def main(loops = 10):
+
+def main(loops=10):
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     LOG_PATH = osp.join(xuqian, "log3.txt")
     if False:

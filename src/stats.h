@@ -45,8 +45,8 @@ class Stats {
     Stats() { reset(); }
 
     void print() {
-        check_subnn_IP = check_subnn_IP_count == 0 ? 0 : check_subnn_IP_ele_count / check_subnn_IP_count;
-        check_subnn_L2 = check_subnn_L2_count == 0 ? 0 : check_subnn_L2_ele_count / check_subnn_L2_count;
+        check_subnn_IP = check_subnn_IP_count == 0 ? 0 : 1.0 * check_subnn_IP_ele_count / check_subnn_IP_count;
+        check_subnn_L2 = check_subnn_L2_count == 0 ? 0 : 1.0 * check_subnn_L2_ele_count / check_subnn_L2_count;
 
         std::cout << "total: " << total_count << std::endl
                   << "skip_triangle: " << skip_triangle_count << std::endl

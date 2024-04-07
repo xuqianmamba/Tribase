@@ -21,6 +21,23 @@ Index::Index(size_t d, size_t nlist, size_t nprobe, MetricType metric, OptLevel 
     std::iota(centroid_ids.get(), centroid_ids.get() + nlist, 0);
 }
 
+Index& Index::operator=(Index&& other) noexcept {
+    d = other.d;
+    nlist = other.nlist;
+    nprobe = other.nprobe;
+    metric = other.metric;
+    opt_level = other.opt_level;
+    added_opt_level = other.added_opt_level;
+    sub_k = other.sub_k;
+    sub_nlist = other.sub_nlist;
+    sub_nprobe = other.sub_nprobe;
+    verbose = other.verbose;
+    lists = std::move(other.lists);
+    centroid_codes = std::move(other.centroid_codes);
+    centroid_ids = std::move(other.centroid_ids);
+    return *this;
+}
+
 void Index::train(size_t n, const float* codes) {
     // 这里假设Clustering类已经定义好，并且有一个合适的构造函数和train方法
     ClusteringParameters cp;
@@ -97,6 +114,8 @@ void Index::add(size_t n, const float* codes) {
     if (n == 0) {
         return;
     }
+
+    added_opt_level = opt_level;
     std::unique_ptr<float[]> candicate2centroid = std::make_unique<float[]>(n);
     std::unique_ptr<idx_t[]> listidcandicates = std::make_unique<idx_t[]>(n);
     init_result(metric, n, candicate2centroid.get(), listidcandicates.get());
@@ -112,9 +131,6 @@ void Index::add(size_t n, const float* codes) {
         } else {
             start = i * batch_size + extra;
             end = start + batch_size;
-        }
-        if (end > n) {
-            throw std::runtime_error("end > n");
         }
         if (start < end) {
             single_thread_nearest_cluster_search(end - start, codes + start * d, candicate2centroid.get() + start, listidcandicates.get() + start);
@@ -136,7 +152,7 @@ void Index::add(size_t n, const float* codes) {
 
 #pragma omp parallel for
     for (size_t i = 0; i < nlist; i++) {
-        lists[i].reset(list_sizes[i], d, sub_k, opt_level);
+        lists[i].reset(list_sizes[i], d, sub_k, added_opt_level);
     }
 
     std::fill_n(list_sizes, nlist, 0);
@@ -169,8 +185,6 @@ void Index::add(size_t n, const float* codes) {
             }
         }
     }
-
-    added_opt_level = opt_level;
 
     {
         size_t total_processd = 0;
@@ -272,6 +286,10 @@ void Index::add(size_t n, const float* codes) {
                     }
                     total_sub_count_l2 += recall_nb * sub_k;
                     total_sub_count_l2_5 += recall_nb * std::min(5ul, sub_k);
+                }
+
+                for (size_t j = 0; j < nb * sub_k; j++) {
+                    list.sub_nearest_L2_dis[j] = sqrt(list.sub_nearest_L2_dis[j]);
                 }
             }
 
