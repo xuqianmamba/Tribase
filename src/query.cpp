@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
     program.add_argument("--output_format").help("format of the output").default_value(std::string("bin"));
     program.add_argument("--k").help("number of nearest neighbors").default_value(100ul).action([](const std::string& value) -> size_t { return std::stoul(value); });
     program.add_argument("--nprobes").default_value(std::vector<size_t>({1ul})).nargs(0, 100).help("number of clusters to search").scan<'u', size_t>();
-    program.add_argument("--opt_levels").default_value(std::vector<std::string>({"OPT_NONE", "OPT_TRIANGLE", "OPT_SUBNN_L2", "OPT_SUBNN_IP", "OPT_ALL"})).nargs(0, 10).help("optimization levels");
+    program.add_argument("--opt_levels").default_value(std::vector<std::string>({"OPT_NONE", "OPT_TRIANGLE", "OPT_TRI_SUBNN_L2", "OPT_TRI_SUBNN_IP", "OPT_ALL"})).nargs(0, 10).help("optimization levels");
     program.add_argument("--train_only").default_value(false).implicit_value(true).help("train only");
     program.add_argument("--cache").default_value(false).implicit_value(true).help("use cached index");
     program.add_argument("--high_precision_subNN_index").default_value(false).implicit_value(true).help("use high precision subNN index");
@@ -88,16 +88,18 @@ int main(int argc, char* argv[]) {
     if (std::filesystem::exists(index_path) && cache) {
         std::cout << std::format("Loading index from {}", index_path) << std::endl;
         index.load_index(index_path);
+        std::cout << std::format("Index loaded") << std::endl;
     } else {
         std::tie(base, nb, d) = loadFvecs(base_path);
         nlist = static_cast<size_t>(std::sqrt(nb));
         if (high_precision_subNN_index) {
-            index = Index(d, nlist, 0, metric, added_opt_levels, 50, 1, 1, true);
+            index = Index(d, nlist, 0, metric, added_opt_levels, 15, 1, 1, true);
         } else {
-            index = Index(d, nlist, 0, metric, added_opt_levels, 50, 20, 5, true);
+            index = Index(d, nlist, 0, metric, added_opt_levels, 15, 20, 5, true);
         }
         index.train(nb, base.get());
         index.add(nb, base.get());
+        std::cout << std::format("Index trained") << std::endl;
         index.save_index(index_path);
         std::cout << std::format("Index saved to {}", index_path) << std::endl;
     }
@@ -112,17 +114,22 @@ int main(int argc, char* argv[]) {
     std::unique_ptr<float[]> ground_truth_D = std::make_unique<float[]>(k * nq);
 
     if (!std::filesystem::exists(groundtruth_path)) {
+        std::cout << std::format("Groundtruth file {} does not exist", groundtruth_path) << std::endl;
         if (base == nullptr) {
             std::tie(base, nb, d) = loadFvecs(base_path);
         }
         faiss::IndexFlatL2 quantizer(d);
         faiss::IndexIVFFlat index2(&quantizer, d, nlist);
         index2.nprobe = nlist;
+        std::cout << std::format("Training groundtruth index") << std::endl;
         index2.train(nb, base.get());
+        std::cout << std::format("Adding vectors to groundtruth index") << std::endl;
         index2.add(nb, base.get());
+        std::cout << std::format("Searching groundtruth index") << std::endl;
         index2.search(nq, query.get(), k, ground_truth_D.get(), ground_truth_I.get());
         writeResultsToFile(ground_truth_I.get(), ground_truth_D.get(), nq, k, groundtruth_path);
         // throw std::runtime_error(std::format("Groundtruth file {} does not exist", groundtruth_path));
+        std::cout << std::format("Groundtruth file {} created", groundtruth_path) << std::endl;
     } else {
         loadResults(groundtruth_path, ground_truth_I.get(), ground_truth_D.get(), nq, k);
     }
@@ -139,7 +146,9 @@ int main(int argc, char* argv[]) {
                                                   benchmarks_path, dataset, nlist, nprobe, static_cast<int>(opt_level), k, output_format);
             std::unique_ptr<float[]> distances = std::make_unique<float[]>(nq * k);
             std::unique_ptr<idx_t[]> labels = std::make_unique<idx_t[]>(nq * k);
+            Stopwatch stopwatch;
             Stats ststs = index.search(nq, query.get(), k, distances.get(), labels.get());
+            std::cout << std::format("Search ime: {} s", stopwatch.elapsedSeconds()) << std::endl;
             ststs.print();
             writeResultsToFile(labels.get(), distances.get(), nq, k, output_path);
             float recall = calculate_recall(labels.get(), distances.get(), ground_truth_I.get(), ground_truth_D.get(), nq, k, metric);

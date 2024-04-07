@@ -160,9 +160,9 @@ void Index::add(size_t n, const float* codes) {
     std::unique_ptr<size_t[]> add_order = std::make_unique<size_t[]>(n);
     std::iota(add_order.get(), add_order.get() + n, 0);
     if (metric == MetricType::METRIC_L2) {
-        std::sort(add_order.get(), add_order.get() + n, [&](size_t i, size_t j) { return listidcandicates[i] < listidcandicates[j]; });
+        std::sort(add_order.get(), add_order.get() + n, [&](size_t i, size_t j) { return candicate2centroid[i] < candicate2centroid[j]; });
     } else {
-        std::sort(add_order.get(), add_order.get() + n, [&](size_t i, size_t j) { return listidcandicates[i] > listidcandicates[j]; });
+        std::sort(add_order.get(), add_order.get() + n, [&](size_t i, size_t j) { return candicate2centroid[i] > candicate2centroid[j]; });
     }
 
 #pragma omp parallel
@@ -179,9 +179,25 @@ void Index::add(size_t n, const float* codes) {
                 if ((opt_level & OptLevel::OPT_TRIANGLE) || (opt_level & OptLevel::OPT_SUBNN_IP)) {
                     lists[list_id].candidate2centroid[list_size] = candicate2centroid[i];
                     lists[list_id].sqrt_candidate2centroid[list_size] = std::sqrt(candicate2centroid[i]);
+#ifdef CORRECTNESS_CHECK
+                    if (list_size > 0) {
+                        if (metric == MetricType::METRIC_L2) {
+                            assert(candicate2centroid[i] >= candicate2centroid[lists[list_id].candidate_id[list_size - 1]]);
+                        } else {
+                            assert(candicate2centroid[i] <= candicate2centroid[lists[list_id].candidate_id[list_size - 1]]);
+                        }
+                    }
+#endif
                 }
                 std::copy_n(codes + i * d, d, lists[list_id].candidate_codes.get() + list_size * d);
                 list_sizes[list_id]++;
+
+                // if (metric == MetricType::METRIC_L2) {
+                //     const float* x = codes + i * d;
+                //     const float* centroid_code = centroid_codes.get() + list_id * d;
+                //     float dis = calculatedEuclideanDistance(x, centroid_code, d);
+                //     assert(dis == candicate2centroid[i]);
+                // }
             }
         }
     }
@@ -278,7 +294,7 @@ void Index::add(size_t n, const float* codes) {
                             float dis = list.get_sub_nearest_L2_dis(j, k);
                             if (dis <= top_recall_dis) {
                                 total_sub_recall_l2++;
-                                if (dis <= top_recall_dis_5) {
+                                if (dis <= top_recall_dis_5 && k < 5) {
                                     total_sub_recall_l2_5++;
                                 }
                             }
@@ -349,7 +365,7 @@ void Index::add(size_t n, const float* codes) {
                             float dis = list.get_sub_nearest_IP_dis(j, k);
                             if (dis >= top_recall_dis) {
                                 total_sub_recall_ip++;
-                                if (dis >= top_recall_dis_5) {
+                                if (dis >= top_recall_dis_5 && k < 5) {
                                     total_sub_recall_ip_5++;
                                 }
                             }
@@ -443,7 +459,7 @@ void Index::single_thread_search(size_t n, const float* queries, size_t k, float
                                list.get_sqrt_candidate2centroid(), sub_k, list.get_sub_nearest_IP_id(),
                                list.get_sub_nearest_IP_dis(), list.get_sub_farest_IP_id(), list.get_sub_farest_IP_dis(),
                                list.get_sub_nearest_L2_id(), list.get_sub_nearest_L2_dis(), if_skip.get(), simi, idxi,
-                               stats);
+                               stats, centroid_codes.get() + listids[j] * d);
         }
         sort_result(metric, k, simi, idxi);
 
@@ -536,7 +552,7 @@ void Index::load_index(std::string path) {
     std::iota(centroid_ids.get(), centroid_ids.get() + nlist, 0);
 
     lists = std::make_unique<IVF[]>(nlist);
-    // lists.resize(nlist);
+    Stopwatch watch;
     while (true) {
         size_t listid;
         in.read(reinterpret_cast<char*>(&listid), sizeof(size_t));
@@ -544,6 +560,10 @@ void Index::load_index(std::string path) {
             break;
         }
         lists[listid].load_IVF(in);
+        if (watch.elapsedSeconds() > 2) {
+            watch.reset();
+            std::cout << std::format("loaded list {}/{}, size {}", listid, nlist, lists[listid].get_list_size()) << std::endl;
+        }
     }
 }
 

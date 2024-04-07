@@ -1,6 +1,6 @@
 #pragma once
-#define DEBUG
-#define CORRECTNESS_CHECK
+// #define DEBUG
+// #define CORRECTNESS_CHECK
 
 #ifdef DEBUG
 #define IF_STATS if (stats)

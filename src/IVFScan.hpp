@@ -4,8 +4,6 @@
 #include "stats.h"
 #include "utils.h"
 
-#define FEPS 1e-6
-
 namespace tribase {
 
 class IVFScanBase {
@@ -45,7 +43,8 @@ class IVFScanBase {
                             bool* if_skip,
                             float* simi,
                             idx_t* idxi,
-                            Stats* stats) = 0;
+                            Stats* stats,
+                            const float* centroid_code) = 0;
 };
 
 template <MetricType metric, OptLevel opt_level>
@@ -96,7 +95,8 @@ class IVFScan : public IVFScanBase {
                     bool* if_skip,
                     float* simi,
                     idx_t* idxi,
-                    Stats* stats) override {
+                    Stats* stats,
+                    [[maybe_unused]] const float* centroid_code = nullptr) override {
         float max_radius;
         float diff_cos, diff_sin;
         float max_radius_plus_centroid2query;
@@ -194,8 +194,19 @@ class IVFScan : public IVFScanBase {
                                 float true_dis = dis_calculator(query, codes + skip_true_id * d, d);
 #pragma omp critical
                                 if (true_dis < simi[0]) {
-                                    std::cerr << "Error: " << true_dis << " " << dis << " " << nearest_IP_dis[skip_fake_id] << std::endl;
-                                    throw std::runtime_error("SUBNN_IP_NEAREST_ERROR");
+                                    std::cerr << std::format("Error: query->p2: {} <= {}, nearestesIP: {}, cut: {}", sqrt(true_dis), sqrt(simi[0]), nearest_IP_dis[skip_fake_id], cut_degree_cos_minus) << std::endl;
+                                    std::cerr << std::format("query->p1: {}, max_r: {}, query->c: {}", sqrt(dis), sqrt(max_radius), sqrt(centroid2query)) << std::endl;
+                                    std::cerr << std::format("c->p1: {}, c->p2: {}", sqrt(candicate2centroid[i]), sqrt(candicate2centroid[skip_true_id])) << std::endl;
+                                    assert(candicate2centroid[i] == dis_calculator(codes + i * d, centroid_code, d));
+                                    assert(candicate2centroid[skip_true_id] == dis_calculator(codes + skip_true_id * d, centroid_code, d));
+                                    std::cout << (metric == MetricType::METRIC_L2) << std::endl;
+
+                                    output_codes(centroid_code, d);
+                                    output_codes(query, d);
+                                    output_codes(codes + i * d, d);
+                                    output_codes(codes + skip_true_id * d, d);
+                                    // throw std::runtime_error("SUBNN_IP_NEAREST_ERROR");
+                                    assert(false);
                                 }
 #endif
                                 IF_STATS {
@@ -222,7 +233,11 @@ class IVFScan : public IVFScanBase {
                                 float true_dis = dis_calculator(query, codes + skip_true_id * d, d);
 #pragma omp critical
                                 if (true_dis < simi[0]) {
-                                    std::cerr << "Error: " << true_dis << " " << simi[0] << " " << dis << " " << farest_IP_dis[skip_fake_id] << " " << cut_degree_cos_plus << std::endl;
+                                    std::cerr << std::format("Error: query->p2: {} <= {}, farestesIP: {}, cut: {}", sqrt(true_dis), sqrt(simi[0]), farest_IP_dis[skip_fake_id], cut_degree_cos_plus) << std::endl;
+                                    std::cerr << std::format("query->p1: {}, max_r: {}, query->c: {}", sqrt(dis), sqrt(max_radius), sqrt(centroid2query)) << std::endl;
+                                    std::cerr << std::format("c->p1: {}, c->p2: {}", sqrt(candicate2centroid[i]), sqrt(candicate2centroid[skip_true_id])) << std::endl;
+                                    output_codes(centroid_code, d);
+                                    output_codes(query, d);
                                     output_codes(codes + i * d, d);
                                     output_codes(codes + skip_true_id * d, d);
                                     // throw std::runtime_error("SUBNN_IP_FAREST_ERROR");

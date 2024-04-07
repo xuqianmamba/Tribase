@@ -298,7 +298,7 @@ inline float calculate_recall(const idx_t* I, const float* D, const idx_t* GT, c
                 if (I[i * k + j] == -1) {
                     break;
                 }
-                if (D[i * k + j] <= topK) {
+                if (D[i * k + j] <= topK + 1e-6) {
                     correct++;
                 }
             }
@@ -315,7 +315,7 @@ inline float calculate_recall(const idx_t* I, const float* D, const idx_t* GT, c
                 if (I[i * k + j] == -1) {
                     break;
                 }
-                if (D[i * k + j] >= topK) {
+                if (D[i * k + j] + 1e-6 >= topK) {
                     correct++;
                 }
             }
@@ -324,9 +324,11 @@ inline float calculate_recall(const idx_t* I, const float* D, const idx_t* GT, c
     return static_cast<float>(correct) / (nq * k);
 }
 
-inline void output_codes(const float* codes, size_t d) {
-    for (size_t i = 0; i < d; ++i) {
-        std::cerr << codes[i] << " ";
+inline void output_codes(const float* code, size_t d) {
+    if (code) {
+        for (size_t i = 0; i < d; ++i) {
+            std::cerr << code[i] << ",";
+        }
     }
     std::cerr << std::endl;
 }
