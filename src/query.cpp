@@ -1,0 +1,94 @@
+#include <argparse/argparse.hpp>
+#include <filesystem>
+#include <format>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <memory>
+#include <string>
+#include <vector>
+
+#include <faiss/IndexFlat.h>
+#include <faiss/IndexIVFFlat.h>
+#include "tribase.h"
+#include "utils.h"
+using namespace tribase;
+
+int main(int argc, char* argv[]) {
+    argparse::ArgumentParser program("tribase");
+    program.add_argument("--benchmarks_path").help("benchmarks path").default_value(std::string("/home/xuqian/Triangle/benchmarks"));
+    program.add_argument("--dataset").help("dataset name").default_value(std::string("sift10k"));
+    program.add_argument("--format").help("format of the dataset").default_value(std::string("fvecs"));
+    program.add_argument("--k").help("number of nearest neighbors").default_value(100ul).action([](const std::string& value) -> size_t { return std::stoul(value); });
+    program.add_argument("--nprobes").default_value(std::vector<size_t>({1ul})).nargs(0, 100).help("number of clusters to search").scan<'u', size_t>();
+    program.add_argument("--opt_levels").default_value(std::vector<std::string>({std::string("OPT_NONE")})).nargs(0, 10).help("optimization levels");
+
+    try {
+        program.parse_args(argc, argv);
+    } catch (const std::runtime_error& err) {
+        std::cerr << err.what() << std::endl;
+        std::cerr << program;
+        return 1;
+    }
+
+    std::vector<size_t> nprobes = program.get<std::vector<size_t>>("nprobes");
+    std::vector<std::string> opt_levels_str = program.get<std::vector<std::string>>("opt_levels");
+    size_t k = program.get<size_t>("k");
+
+    std::vector<OptLevel> opt_levels;
+    for (const auto& opt_level_str : opt_levels_str) {
+        opt_levels.push_back(str2OptLevel(opt_level_str));
+    }
+    OptLevel added_opt_levels = OptLevel::OPT_NONE;
+    for (const OptLevel& opt_level : opt_levels) {
+        added_opt_levels = static_cast<OptLevel>(static_cast<int>(added_opt_levels) | static_cast<int>(opt_level));
+    }
+
+    std::string benchmarks_path = program.get<std::string>("benchmarks_path");
+    std::string dataset = program.get<std::string>("dataset");
+    std::string format = program.get<std::string>("format");
+    std::string base_path = std::format("{}/{}/origin/{}_base.{}", benchmarks_path, dataset, dataset, format);
+    std::string query_path = std::format("{}/{}/origin/{}_query.{}", benchmarks_path, dataset, dataset, format);
+    std::string groundtruth_path = std::format("{}/{}/result/groundtruth_{}.txt", benchmarks_path, dataset, k);
+
+    auto [base, nb, d] = loadFvecs(base_path);
+    auto [query, nq, _] = loadFvecs(query_path);
+
+    size_t nlist = static_cast<size_t>(std::sqrt(nb));
+
+    std::string index_path = std::format("{}/{}/index/index_nlist_{}_opt_{}.index", benchmarks_path, dataset, nlist, static_cast<int>(added_opt_levels));
+    Index index(d, nlist, 0, MetricType::METRIC_L2, added_opt_levels);
+
+    if (std::filesystem::exists(index_path)) {
+        index.load_index(index_path);
+    } else {
+        index.train(nb, base.get());
+        index.add(nb, base.get());
+        index.save_index(index_path);
+    }
+
+    if (!std::filesystem::exists(groundtruth_path)) {
+        // faiss::IndexFlatL2 quantizer(d);
+        // faiss::IndexIVFFlat index2(&quantizer, d, nlist);
+        // index2.nprobe = nlist;
+        // index2.train(nb, base.get());
+        // index2.add(nb, base.get());
+        // std::unique_ptr<idx_t[]> I(new idx_t[k * nq]);
+        // std::unique_ptr<float[]> D(new float[k * nq]);
+        // index2.search(nq, query.get(), k, D.get(), I.get());
+        // writeResultsToFile(I.get(), D.get(), nq, k, groundtruth_path);
+        throw std::runtime_error(std::format("Groundtruth file {} does not exist", groundtruth_path));
+    }
+
+    for (size_t nprobe : nprobes) {
+        index.nprobe = nprobe;
+        for (const OptLevel& opt_level : opt_levels) {
+            index.opt_level = opt_level;
+            std::string output_path = std::format("{}/{}/result/result_nlist_{}_nprobe_{}_opt_{}_k_{}.txt", benchmarks_path, dataset, nlist, nprobe, static_cast<int>(opt_level), k);
+            std::unique_ptr<float[]> distances(new float[nq * program.get<size_t>("k")]);
+            std::unique_ptr<idx_t[]> labels(new idx_t[nq * program.get<size_t>("k")]);
+            index.search(nq, query.get(), k, distances.get(), labels.get());
+            writeResultsToFile(labels.get(), distances.get(), nq, k, output_path);
+        }
+    }
+}

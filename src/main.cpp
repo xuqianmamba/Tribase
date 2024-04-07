@@ -54,8 +54,22 @@ int main(int argc, char* argv[]) {
     std::cout << "train time: " << sw.elapsedSeconds(true) << "s" << std::endl;
     index.add(nb, base.get());
     std::cout << "add time: " << sw.elapsedSeconds(true) << "s" << std::endl;
+
     index.search(nq, query.get(), k, distances.get(), labels.get());
     std::cout << "search time: " << sw.elapsedSeconds(true) << "s" << std::endl;
+
+    index.opt_level = OptLevel::OPT_TRIANGLE;
+    index.search(nq, query.get(), k, distances.get(), labels.get());
+    std::cout << "search time: " << sw.elapsedSeconds(true) << "s" << std::endl;
+
+    index.opt_level = OptLevel::OPT_SUBNN_L2;
+    index.search(nq, query.get(), k, distances.get(), labels.get());
+    std::cout << "search time: " << sw.elapsedSeconds(true) << "s" << std::endl;
+
+    index.opt_level = OptLevel::OPT_SUBNN_IP;
+    index.search(nq, query.get(), k, distances.get(), labels.get());
+    std::cout << "search time: " << sw.elapsedSeconds(true) << "s" << std::endl;
+
     writeResultsToFile(labels.get(), distances.get(), nq, k, output_file);
     std::cout << "write time: " << sw.elapsedSeconds(true) << "s" << std::endl;
 

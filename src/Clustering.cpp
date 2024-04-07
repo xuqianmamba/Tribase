@@ -24,6 +24,7 @@ void Clustering::train(size_t n, const float* candidate_codes) {
     initialize_centroids(n, sampled_codes);
 
     for (int iter = 0; iter < cp.niter; ++iter) {
+        std::cout << "Iteration " << iter + 1 << " of " << cp.niter << std::endl;
         update_centroids(n, sampled_codes);
     }
 

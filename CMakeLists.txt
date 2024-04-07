@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.21)
 project(TriBase)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -24,5 +24,5 @@ elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
 endif()
 
 include_directories(${CMAKE_SOURCE_DIR}/third_party)
-add_subdirectory(third_party/faiss_pan)
+add_subdirectory(third_party/faiss)
 add_subdirectory(src)

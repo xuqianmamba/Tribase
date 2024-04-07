@@ -16,7 +16,6 @@ namespace tribase {
 Index::Index(size_t d, size_t nlist, size_t nprobe, MetricType metric, OptLevel opt_level, size_t sub_k, size_t sub_nlist, size_t sub_nprobe, bool is_sub_index)
     : d(d), nlist(nlist), nprobe(nprobe), metric(metric), opt_level(opt_level), sub_k(sub_k), sub_nlist(sub_nlist), sub_nprobe(sub_nprobe), is_sub_index(is_sub_index) {
     lists = std::make_unique<IVF[]>(nlist);
-    // lists.resize(nlist);
     centroid_codes = std::make_unique<float[]>(nlist * d);
     centroid_ids = std::make_unique<idx_t[]>(nlist);
     std::iota(centroid_ids.get(), centroid_ids.get() + nlist, 0);
@@ -125,53 +124,44 @@ void Index::add(size_t n, const float* codes) {
     for (size_t i = 0; i < nlist; i++) {
         total_add += list_sizes[i];
     }
-    // if (total_add != n) {
-    //     std::cerr << total_add << " " << n << std::endl;
-    //     for (int i = 0; i < n; i++) {
-    //         std::cerr << listidcandicates[i] << " ";
-    //     }
-    //     std::cerr << std::endl;
-    //     throw std::runtime_error("total add not match");
-    // }
 
 #pragma omp parallel for
     for (size_t i = 0; i < nlist; i++) {
-        lists[i].reset(list_sizes[i], d, sub_k);
+        lists[i].reset(list_sizes[i], d, sub_k, opt_level);
     }
 
     std::fill_n(list_sizes, nlist, 0);
+
+    std::unique_ptr<size_t[]> add_order = std::make_unique<size_t[]>(n);
+    std::iota(add_order.get(), add_order.get() + n, 0);
+    if (metric == MetricType::METRIC_L2) {
+        std::sort(add_order.get(), add_order.get() + n, [&](size_t i, size_t j) { return listidcandicates[i] < listidcandicates[j]; });
+    } else {
+        std::sort(add_order.get(), add_order.get() + n, [&](size_t i, size_t j) { return listidcandicates[i] > listidcandicates[j]; });
+    }
 
 #pragma omp parallel
     {
         int nt = omp_get_num_threads();
         int tid = omp_get_thread_num();
 
-        for (size_t i = 0; i < n; i++) {
+        for (size_t oi = 0; oi < n; oi++) {
+            size_t i = add_order[oi];
             int list_id = listidcandicates[i];
             if (list_id % nt == tid) {
                 size_t list_size = list_sizes[list_id];
                 lists[list_id].candidate_id[list_size] = i;
-                lists[list_id].candidate2centroid[list_size] = candicate2centroid[i];
-                lists[list_id].sqrt_candidate2centroid[list_size] = std::sqrt(candicate2centroid[i]);
+                if ((opt_level & OptLevel::OPT_TRIANGLE) || (opt_level & OptLevel::OPT_SUBNN_IP)) {
+                    lists[list_id].candidate2centroid[list_size] = candicate2centroid[i];
+                    lists[list_id].sqrt_candidate2centroid[list_size] = std::sqrt(candicate2centroid[i]);
+                }
                 std::copy_n(codes + i * d, d, lists[list_id].candidate_codes.get() + list_size * d);
                 list_sizes[list_id]++;
             }
         }
     }
 
-    // check
-    // for (size_t i = 0; i < nlist; i++) {
-    //     if (list_sizes[i] != lists[i].get_list_size()) {
-    //         throw std::runtime_error("list size not match");
-    //     }
-    //     printf("list %ld size: %ld\n", i, list_sizes[i]);
-    //     for (size_t j = 0; j < list_sizes[i]; j++) {
-    //         for (size_t k = 0; k < d; k++) {
-    //             printf("%f ", lists[i].get_candidate_codes(j)[k]);
-    //         }
-    //         printf("\n");
-    //     }
-    // }
+    added_opt_level = opt_level;
 
     {
         size_t total_processd = 0;
@@ -447,6 +437,9 @@ void Index::single_thread_search(size_t n, const float* queries, size_t k, float
 }
 
 void Index::search(size_t n, const float* queries, size_t k, float* distances, idx_t* labels) {
+    if ((opt_level & added_opt_level) != opt_level) {
+        throw std::runtime_error("opt_level is not subset of added_opt_level");
+    }
     if (nprobe > nlist) {
         nprobe = nlist;
     }
@@ -472,6 +465,64 @@ void Index::search(size_t n, const float* queries, size_t k, float* distances, i
     }
 
     [[maybe_unused]] Stats total_stats = mergeStats(stats);
+}
+
+void Index::save_index(std::string path) const {
+    prepareDirectory(path);
+    std::ofstream out(path, std::ios::binary);
+    if (!out.is_open()) {
+        throw std::runtime_error("Cannot open file " + path);
+    }
+    out.write(reinterpret_cast<const char*>(&d), sizeof(size_t));
+    out.write(reinterpret_cast<const char*>(&nlist), sizeof(size_t));
+    // out.write(reinterpret_cast<const char*>(&nprobe), sizeof(size_t));
+    out.write(reinterpret_cast<const char*>(&metric), sizeof(MetricType));
+    out.write(reinterpret_cast<const char*>(&added_opt_level), sizeof(OptLevel));
+    out.write(reinterpret_cast<const char*>(&sub_k), sizeof(size_t));
+    out.write(reinterpret_cast<const char*>(&sub_nlist), sizeof(size_t));
+    out.write(reinterpret_cast<const char*>(&sub_nprobe), sizeof(size_t));
+
+    out.write(reinterpret_cast<const char*>(centroid_codes.get()), nlist * d * sizeof(float));
+    // out.write(reinterpret_cast<const char*>(centroid_ids.get()), nlist * sizeof(idx_t)); // 0 ~ nlist-1
+
+    for (size_t i = 0; i < nlist; i++) {
+        if (lists[i].get_list_size() > 0) {
+            out.write(reinterpret_cast<const char*>(&i), sizeof(size_t));
+            lists[i].save_IVF(out);
+        }
+    }
+}
+
+void Index::load_index(std::string path) {
+    std::ifstream in(path, std::ios::binary);
+    if (!in.is_open()) {
+        throw std::runtime_error("Cannot open file " + path);
+    }
+    in.read(reinterpret_cast<char*>(&d), sizeof(size_t));
+    in.read(reinterpret_cast<char*>(&nlist), sizeof(size_t));
+    // in.read(reinterpret_cast<char*>(&nprobe), sizeof(size_t));
+    in.read(reinterpret_cast<char*>(&metric), sizeof(MetricType));
+    in.read(reinterpret_cast<char*>(&added_opt_level), sizeof(OptLevel));
+    opt_level = OptLevel::OPT_NONE;
+    in.read(reinterpret_cast<char*>(&sub_k), sizeof(size_t));
+    in.read(reinterpret_cast<char*>(&sub_nlist), sizeof(size_t));
+    in.read(reinterpret_cast<char*>(&sub_nprobe), sizeof(size_t));
+
+    centroid_codes = std::make_unique<float[]>(nlist * d);
+    in.read(reinterpret_cast<char*>(centroid_codes.get()), nlist * d * sizeof(float));
+    centroid_ids = std::make_unique<idx_t[]>(nlist);
+    std::iota(centroid_ids.get(), centroid_ids.get() + nlist, 0);
+
+    lists = std::make_unique<IVF[]>(nlist);
+    // lists.resize(nlist);
+    while (true) {
+        size_t listid;
+        in.read(reinterpret_cast<char*>(&listid), sizeof(size_t));
+        if (in.eof()) {
+            break;
+        }
+        lists[listid].load_IVF(in);
+    }
 }
 
 }  // namespace tribase

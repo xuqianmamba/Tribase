@@ -38,10 +38,10 @@ struct IDSelectorRange : IDSelector {
     /// for sorted ids, find the range of list indices where the valid ids are
     /// stored
     void find_sorted_ids_bounds(
-            size_t list_size,
-            const idx_t* ids,
-            size_t* jmin,
-            size_t* jmax) const;
+        size_t list_size,
+        const idx_t* ids,
+        size_t* jmin,
+        size_t* jmax) const;
 
     ~IDSelectorRange() override {}
 };
@@ -116,7 +116,8 @@ struct IDSelectorBitmap : IDSelector {
 /** reverts the membership test of another selector */
 struct IDSelectorNot : IDSelector {
     const IDSelector* sel;
-    IDSelectorNot(const IDSelector* sel) : sel(sel) {}
+    IDSelectorNot(const IDSelector* sel)
+        : sel(sel) {}
     bool is_member(idx_t id) const final {
         return !sel->is_member(id);
     }
@@ -125,7 +126,7 @@ struct IDSelectorNot : IDSelector {
 
 /// selects all entries (useful for benchmarking)
 struct IDSelectorAll : IDSelector {
-    bool is_member(idx_t id) const final {
+    bool is_member([[maybe_unused]] idx_t id) const final {
         return true;
     }
     virtual ~IDSelectorAll() {}
@@ -137,7 +138,7 @@ struct IDSelectorAnd : IDSelector {
     const IDSelector* lhs;
     const IDSelector* rhs;
     IDSelectorAnd(const IDSelector* lhs, const IDSelector* rhs)
-            : lhs(lhs), rhs(rhs) {}
+        : lhs(lhs), rhs(rhs) {}
     bool is_member(idx_t id) const final {
         return lhs->is_member(id) && rhs->is_member(id);
     };
@@ -150,7 +151,7 @@ struct IDSelectorOr : IDSelector {
     const IDSelector* lhs;
     const IDSelector* rhs;
     IDSelectorOr(const IDSelector* lhs, const IDSelector* rhs)
-            : lhs(lhs), rhs(rhs) {}
+        : lhs(lhs), rhs(rhs) {}
     bool is_member(idx_t id) const final {
         return lhs->is_member(id) || rhs->is_member(id);
     };
@@ -163,11 +164,11 @@ struct IDSelectorXOr : IDSelector {
     const IDSelector* lhs;
     const IDSelector* rhs;
     IDSelectorXOr(const IDSelector* lhs, const IDSelector* rhs)
-            : lhs(lhs), rhs(rhs) {}
+        : lhs(lhs), rhs(rhs) {}
     bool is_member(idx_t id) const final {
         return lhs->is_member(id) ^ rhs->is_member(id);
     };
     virtual ~IDSelectorXOr() {}
 };
 
-} // namespace faiss
+}  // namespace faiss

@@ -1,6 +1,7 @@
 #ifndef IVF_H
 #define IVF_H
 
+#include <fstream>
 #include <memory>
 #include "common.h"
 
@@ -10,6 +11,7 @@ class IVF {
     size_t list_size;
     size_t d;
     size_t sub_k;
+    OptLevel opt_level;
     std::unique_ptr<size_t[]> candidate_id;
     std::unique_ptr<float[]> candidate_codes;
     std::unique_ptr<float[]> candidate2centroid;
@@ -23,7 +25,7 @@ class IVF {
 
    public:
     // Constructor
-    IVF(size_t listSize = 0, size_t d = 0, size_t subK = 0);
+    IVF(size_t listSize = 0, size_t d = 0, size_t subK = 0, OptLevel optLevel = OptLevel::OPT_ALL);
 
     // Destructor
     ~IVF();
@@ -36,7 +38,10 @@ class IVF {
     IVF(IVF&&) noexcept;
     IVF& operator=(IVF&&) noexcept;
 
-    void reset(size_t listSize, size_t d, size_t subK);
+    void reset(size_t listSize, size_t d, size_t subK, OptLevel optLevel = OptLevel::OPT_ALL);
+
+    void save_IVF(std::ostream& os) const;
+    void load_IVF(std::istream& is);
 
     // Additional methods to manipulate the data can be added here
     size_t get_list_size() const { return list_size; }
