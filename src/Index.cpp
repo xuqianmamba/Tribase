@@ -78,7 +78,10 @@ std::unique_ptr<IVFScanBase> Index::get_scanner(MetricType metric, OptLevel opt_
 };
 
 void Index::single_thread_nearest_cluster_search(size_t n, const float* queries, float* distances, idx_t* labels) {
-    std::unique_ptr<IVFScanBase> scaner_quantizer = get_scanner(metric, OPT_NONE, sub_k);
+    if (n == 0) {
+        return;
+    }
+    std::unique_ptr<IVFScanBase> scaner_quantizer = get_scanner(metric, OPT_NONE, 1);
     for (size_t i = 0; i < n; i++) {
         scaner_quantizer->set_query(queries + i * d);
         scaner_quantizer->lite_scan_codes(nlist,
@@ -91,6 +94,9 @@ void Index::single_thread_nearest_cluster_search(size_t n, const float* queries,
 }
 
 void Index::add(size_t n, const float* codes) {
+    if (n == 0) {
+        return;
+    }
     std::unique_ptr<float[]> candicate2centroid = std::make_unique<float[]>(n);
     std::unique_ptr<idx_t[]> listidcandicates = std::make_unique<idx_t[]>(n);
     init_result(metric, n, candicate2centroid.get(), listidcandicates.get());
@@ -106,6 +112,9 @@ void Index::add(size_t n, const float* codes) {
         } else {
             start = i * batch_size + extra;
             end = start + batch_size;
+        }
+        if (end > n) {
+            throw std::runtime_error("end > n");
         }
         if (start < end) {
             single_thread_nearest_cluster_search(end - start, codes + start * d, candicate2centroid.get() + start, listidcandicates.get() + start);
@@ -166,15 +175,14 @@ void Index::add(size_t n, const float* codes) {
     {
         size_t total_processd = 0;
 
-        size_t true_train_count = 0;
-        size_t all_train_count = 0;
-
         size_t total_sub_count_ip = 0;
         size_t total_sub_recall_ip = 0;
         size_t total_sub_count_l2 = 0;
         size_t total_sub_recall_l2 = 0;
-        size_t total_sub_recall_ip_point_10 = 0;
-        size_t total_sub_recall_l2_point_10 = 0;
+        size_t total_sub_count_ip_5 = 0;
+        size_t total_sub_recall_ip_5 = 0;
+        size_t total_sub_count_l2_5 = 0;
+        size_t total_sub_recall_l2_5 = 0;
 
         Stopwatch logwatch;
 
@@ -185,29 +193,20 @@ void Index::add(size_t n, const float* codes) {
 
         [[maybe_unused]] auto running_log = [&]() -> void {
             if (verbose) {
-                if (logwatch.elapsedSeconds() > log_interval) {
+                if (logwatch.elapsedSeconds() > log_interval || total_processd == nlist) {
                     logwatch.reset();
-                    printf("build: %.2f%%\n", 100.0 * total_processd / nlist);
+                    std::cout << std::format("build: {:.2f}%", 100.0 * total_processd / nlist) << std::endl;
                     double total_elapsed = train_elapsed + add_elapsed + search_elapsed;
                     double train_percent = 100.0 * train_elapsed / total_elapsed;
                     double add_percent = 100.0 * add_elapsed / total_elapsed;
                     double search_percent = 100.0 * search_elapsed / total_elapsed;
-                    printf("train: %.2f%%    add: %.2f%%    search: %.2f%%    total: %.2f\n",
-                           train_percent,
-                           add_percent,
-                           search_percent,
-                           total_elapsed);
+                    std::cout << std::format("train: {:.2f}%    add: {:.2f}%    search: {:.2f}%    total: {:.2f}\n", train_percent, add_percent, search_percent, total_elapsed);
                     float sub_recall_ip = total_sub_count_ip ? 100.0 * total_sub_recall_ip / total_sub_count_ip : 0;
                     float sub_recall_l2 = total_sub_count_l2 ? 100.0 * total_sub_recall_l2 / total_sub_count_l2 : 0;
-                    float sub_recall_ip_point_10 = total_sub_count_ip ? 1000.0 * total_sub_recall_ip_point_10 / total_sub_count_ip : 0;
-                    float sub_recall_l2_point_10 = total_sub_count_l2 ? 1000.0 * total_sub_recall_l2_point_10 / total_sub_count_l2 : 0;
-                    printf("Recall    ip 1/10: %.2f%%    ip: %.2f%%    l2 1/10: %.2f%%    l2: %.2f%%    %ld/%ld\n",
-                           sub_recall_ip_point_10,
-                           sub_recall_ip,
-                           sub_recall_l2_point_10,
-                           sub_recall_l2,
-                           sub_nprobe,
-                           sub_nlist);
+                    float sub_recall_ip_5 = total_sub_count_ip_5 ? 100.0 * total_sub_recall_ip_5 / total_sub_count_ip_5 : 0;
+                    float sub_recall_l2_5 = total_sub_count_l2_5 ? 100.0 * total_sub_recall_l2_5 / total_sub_count_l2_5 : 0;
+                    std::cout << std::format("Recall    SUBNN_IP top5: {:.2f}%    topk: {:.2f}%    SUBNN_L2 top5: {:.2f}%    topk: {:.2f}%    {}/{}\n",
+                                             sub_recall_ip_5, sub_recall_ip, sub_recall_l2_5, sub_recall_l2, sub_nprobe, sub_nlist);
                 }
             }
         };
@@ -215,13 +214,12 @@ void Index::add(size_t n, const float* codes) {
         [[maybe_unused]] auto end_log = [&]() -> void {
             if (verbose) {
                 double total_elapsed = train_elapsed + add_elapsed + search_elapsed;
-                printf("add: 100.0%%    build: 100.0%%\n");
-                printf("train: %.2f (%.2f%%)    add: %.2f    search: %.2f    total: %.2f\n",
-                       train_elapsed,
-                       100.0 * true_train_count / all_train_count,
-                       add_elapsed,
-                       search_elapsed,
-                       total_elapsed);
+                std::cout << std::format("build: 100.0%\n");
+                std::cout << std::format("train: {:.2f}   add: {:.2f}    search: {:.2f}    total: {:.2f}\n",
+                                         train_elapsed,
+                                         add_elapsed,
+                                         search_elapsed,
+                                         total_elapsed);
             }
         };
 
@@ -258,20 +256,22 @@ void Index::add(size_t n, const float* codes) {
                     std::unique_ptr<idx_t[]> recall_id = std::make_unique<idx_t[]>(recall_nb * sub_k);
                     sub_index.nprobe = sub_index.nlist;
                     sub_index.search(recall_nb, xb, sub_k, recall_dis.get(), recall_id.get());
-                    float top_recall_dis = recall_dis[sub_k - 1];
-                    float top_recall_dis_point_10 = recall_dis[(sub_k + 9) / 10 - 1];
 
                     for (size_t j = 0; j < recall_nb; j++) {
+                        float top_recall_dis = recall_dis[j * sub_k + sub_k - 1];
+                        float top_recall_dis_5 = recall_dis[j * sub_k + std::min(4ul, sub_k - 1)];
                         for (size_t k = 0; k < sub_k; k++) {
-                            if (list.sub_nearest_L2_dis[j] < top_recall_dis) {
+                            float dis = list.get_sub_nearest_L2_dis(j, k);
+                            if (dis <= top_recall_dis) {
                                 total_sub_recall_l2++;
-                                if (list.sub_nearest_L2_dis[j] < top_recall_dis_point_10) {
-                                    total_sub_recall_l2_point_10++;
+                                if (dis <= top_recall_dis_5) {
+                                    total_sub_recall_l2_5++;
                                 }
                             }
                         }
                     }
                     total_sub_count_l2 += recall_nb * sub_k;
+                    total_sub_count_l2_5 += recall_nb * std::min(5ul, sub_k);
                 }
             }
 
@@ -305,28 +305,6 @@ void Index::add(size_t n, const float* codes) {
 #pragma omp atomic
                 search_elapsed += watch.elapsedSeconds(true);
 
-                if (true) {
-                    size_t recall_nb = static_cast<size_t>(1.0 * nb * RECALL_TEST_RATIO / sub_nlist * sub_nprobe);
-                    std::unique_ptr<float[]> recall_dis = std::make_unique<float[]>(recall_nb * sub_k);
-                    std::unique_ptr<idx_t[]> recall_id = std::make_unique<idx_t[]>(recall_nb * sub_k);
-                    sub_index.nprobe = sub_index.nlist;
-                    sub_index.search(recall_nb, norm_xb, sub_k, recall_dis.get(), recall_id.get());
-                    float top_recall_dis = recall_dis[sub_k - 1];
-                    float top_recall_dis_point_10 = recall_dis[(sub_k + 9) / 10 - 1];
-
-                    for (size_t j = 0; j < recall_nb; j++) {
-                        for (size_t k = 0; k < sub_k; k++) {
-                            if (list.sub_nearest_L2_dis[j] < top_recall_dis) {
-                                total_sub_recall_ip++;
-                                if (list.sub_nearest_L2_dis[j] < top_recall_dis_point_10) {
-                                    total_sub_recall_ip_point_10++;
-                                }
-                            }
-                        }
-                    }
-                    total_sub_count_ip += recall_nb * sub_k;
-                }
-
                 for (size_t j = 0; j < nb * d; j++) {
                     norm_xb[j] = -norm_xb[j];
                 }
@@ -337,6 +315,30 @@ void Index::add(size_t n, const float* codes) {
 
                 for (size_t j = 0; j < nb * sub_k; j++) {
                     list.sub_farest_IP_dis[j] = -list.sub_farest_IP_dis[j];
+                }
+
+                if (true) {
+                    size_t recall_nb = static_cast<size_t>(1.0 * nb * RECALL_TEST_RATIO / sub_nlist * sub_nprobe);
+                    std::unique_ptr<float[]> recall_dis = std::make_unique<float[]>(recall_nb * sub_k);
+                    std::unique_ptr<idx_t[]> recall_id = std::make_unique<idx_t[]>(recall_nb * sub_k);
+                    sub_index.nprobe = sub_index.nlist;
+                    sub_index.search(recall_nb, norm_xb, sub_k, recall_dis.get(), recall_id.get());
+
+                    for (size_t j = 0; j < recall_nb; j++) {
+                        float top_recall_dis = recall_dis[j * sub_k + sub_k - 1];
+                        float top_recall_dis_5 = recall_dis[j * sub_k + std::min(4ul, sub_k - 1)];
+                        for (size_t k = 0; k < sub_k; k++) {
+                            float dis = list.get_sub_nearest_IP_dis(j, k);
+                            if (dis >= top_recall_dis) {
+                                total_sub_recall_ip++;
+                                if (dis >= top_recall_dis_5) {
+                                    total_sub_recall_ip_5++;
+                                }
+                            }
+                        }
+                    }
+                    total_sub_count_ip += recall_nb * sub_k;
+                    total_sub_count_ip_5 += recall_nb * std::min(5ul, sub_k);
                 }
             }
 
@@ -435,6 +437,9 @@ void Index::single_thread_search(size_t n, const float* queries, size_t k, float
 }
 
 Stats Index::search(size_t n, const float* queries, size_t k, float* distances, idx_t* labels) {
+    if (n == 0) {
+        return Stats();
+    }
     if ((opt_level & added_opt_level) != opt_level) {
         throw std::runtime_error("opt_level is not subset of added_opt_level");
     }

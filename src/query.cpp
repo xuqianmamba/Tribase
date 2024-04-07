@@ -58,7 +58,9 @@ int main(int argc, char* argv[]) {
     std::string query_path = std::format("{}/{}/origin/{}_query.{}", benchmarks_path, dataset, dataset, format);
     std::string groundtruth_path = std::format("{}/{}/result/groundtruth_{}.txt", benchmarks_path, dataset, k);
 
-    auto [nb, d] = loadFvecsInfo(base_path);
+    size_t nb, d;
+    std::unique_ptr<float[]> base = nullptr;
+    std::tie(nb, d) = loadFvecsInfo(base_path);
     size_t nlist = static_cast<size_t>(std::sqrt(nb));
 
     std::string index_path = std::format("{}/{}/index/index_nlist_{}_opt_{}_{}.index", benchmarks_path, dataset, nlist, static_cast<int>(added_opt_levels), high_precision_subNN_index ? "high_precision" : "low_precision");
@@ -68,7 +70,7 @@ int main(int argc, char* argv[]) {
         std::cout << std::format("Loading index from {}", index_path) << std::endl;
         index.load_index(index_path);
     } else {
-        auto [base, nb, d] = loadFvecs(base_path);
+        std::tie(base, nb, d) = loadFvecs(base_path);
         nlist = static_cast<size_t>(std::sqrt(nb));
         if (high_precision_subNN_index) {
             index = Index(d, nlist, 0, MetricType::METRIC_L2, added_opt_levels, 50, 1, 1, true);
@@ -88,16 +90,19 @@ int main(int argc, char* argv[]) {
     auto [query, nq, _] = loadFvecs(query_path);
 
     if (!std::filesystem::exists(groundtruth_path)) {
-        // faiss::IndexFlatL2 quantizer(d);
-        // faiss::IndexIVFFlat index2(&quantizer, d, nlist);
-        // index2.nprobe = nlist;
-        // index2.train(nb, base.get());
-        // index2.add(nb, base.get());
-        // std::unique_ptr<idx_t[]> I(new idx_t[k * nq]);
-        // std::unique_ptr<float[]> D(new float[k * nq]);
-        // index2.search(nq, query.get(), k, D.get(), I.get());
-        // writeResultsToFile(I.get(), D.get(), nq, k, groundtruth_path);
-        throw std::runtime_error(std::format("Groundtruth file {} does not exist", groundtruth_path));
+        if (base == nullptr) {
+            std::tie(base, nb, d) = loadFvecs(base_path);
+        }
+        faiss::IndexFlatL2 quantizer(d);
+        faiss::IndexIVFFlat index2(&quantizer, d, nlist);
+        index2.nprobe = nlist;
+        index2.train(nb, base.get());
+        index2.add(nb, base.get());
+        std::unique_ptr<idx_t[]> I(new idx_t[k * nq]);
+        std::unique_ptr<float[]> D(new float[k * nq]);
+        index2.search(nq, query.get(), k, D.get(), I.get());
+        writeResultsToFile(I.get(), D.get(), nq, k, groundtruth_path);
+        // throw std::runtime_error(std::format("Groundtruth file {} does not exist", groundtruth_path));
     }
 
     if (nprobes.back() == 0) {
@@ -112,7 +117,7 @@ int main(int argc, char* argv[]) {
             std::unique_ptr<float[]> distances = std::make_unique<float[]>(nq * k);
             std::unique_ptr<idx_t[]> labels = std::make_unique<idx_t[]>(nq * k);
             Stats ststs = index.search(nq, query.get(), k, distances.get(), labels.get());
-            ststs.print();
+            // ststs.print();
             writeResultsToFile(labels.get(), distances.get(), nq, k, output_path);
         }
     }

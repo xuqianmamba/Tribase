@@ -20,7 +20,7 @@ find_package(GTest REQUIRED)
 # set(W_CXX_FLAGS " -Wall -Wextra")
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 ${W_CXX_FLAGS} -g ${OpenMP_CXX_FLAGS}") # -Wpedantic -Werror -fsanitize=address
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -O0 ${W_CXX_FLAGS} -g ${OpenMP_CXX_FLAGS}") # -Wpedantic -Werror
 elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 ${W_CXX_FLAGS} ${OpenMP_CXX_FLAGS}") # -Wpedantic -Werror
 endif()

@@ -50,23 +50,23 @@ class IVF {
     const float* get_candidate_codes() const { return candidate_codes.get(); }
     const float* get_candidate_codes(size_t i) const { return candidate_codes.get() + i * d; }
     const size_t* get_candidate_id() const { return candidate_id.get(); }
-    const size_t* get_candidate_id(size_t i) const { return candidate_id.get() + i; }
+    const size_t get_candidate_id(size_t i) const { return candidate_id[i]; }
     const float* get_candidate2centroid() const { return candidate2centroid.get(); }
-    const float* get_candidate2centroid(size_t i) const { return candidate2centroid.get() + i; }
+    const float get_candidate2centroid(size_t i) const { return candidate2centroid[i]; }
     const float* get_sqrt_candidate2centroid() const { return sqrt_candidate2centroid.get(); }
-    const float* get_sqrt_candidate2centroid(size_t i) const { return sqrt_candidate2centroid.get() + i; }
+    const float get_sqrt_candidate2centroid(size_t i) const { return sqrt_candidate2centroid[i]; }
     const idx_t* get_sub_nearest_L2_id() const { return sub_nearest_L2_id.get(); }
-    const idx_t* get_sub_nearest_L2_id(size_t i, size_t k) const { return sub_nearest_L2_id.get() + i * sub_k + k; }
+    const idx_t get_sub_nearest_L2_id(size_t i, size_t k) const { return sub_nearest_L2_id[i * sub_k + k]; }
     const float* get_sub_nearest_L2_dis() const { return sub_nearest_L2_dis.get(); }
-    const float* get_sub_nearest_L2_dis(size_t i, size_t k) const { return sub_nearest_L2_dis.get() + i * sub_k + k; }
+    const float get_sub_nearest_L2_dis(size_t i, size_t k) const { return sub_nearest_L2_dis[i * sub_k + k]; }
     const idx_t* get_sub_nearest_IP_id() const { return sub_nearest_IP_id.get(); }
-    const idx_t* get_sub_nearest_IP_id(size_t i, size_t k) const { return sub_nearest_IP_id.get() + i * sub_k + k; }
+    const idx_t get_sub_nearest_IP_id(size_t i, size_t k) const { return sub_nearest_IP_id[i * sub_k + k]; }
     const float* get_sub_nearest_IP_dis() const { return sub_nearest_IP_dis.get(); }
-    const float* get_sub_nearest_IP_dis(size_t i, size_t k) const { return sub_nearest_IP_dis.get() + i * sub_k + k; }
+    const float get_sub_nearest_IP_dis(size_t i, size_t k) const { return sub_nearest_IP_dis[i * sub_k + k]; }
     const idx_t* get_sub_farest_IP_id() const { return sub_farest_IP_id.get(); }
-    const idx_t* get_sub_farest_IP_id(size_t i, size_t k) const { return sub_farest_IP_id.get() + i * sub_k + k; }
+    const idx_t get_sub_farest_IP_id(size_t i, size_t k) const { return sub_farest_IP_id[i * sub_k + k]; }
     const float* get_sub_farest_IP_dis() const { return sub_farest_IP_dis.get(); }
-    const float* get_sub_farest_IP_dis(size_t i, size_t k) const { return sub_farest_IP_dis.get() + i * sub_k + k; }
+    const float get_sub_farest_IP_dis(size_t i, size_t k) const { return sub_farest_IP_dis[i * sub_k + k]; }
 };
 }  // namespace tribase
 
