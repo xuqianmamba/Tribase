@@ -22,6 +22,7 @@ int main(int argc, char* argv[]) {
     program.add_argument("--k").help("number of nearest neighbors").default_value(100ul).action([](const std::string& value) -> size_t { return std::stoul(value); });
     program.add_argument("--nprobes").default_value(std::vector<size_t>({1ul})).nargs(0, 100).help("number of clusters to search").scan<'u', size_t>();
     program.add_argument("--opt_levels").default_value(std::vector<std::string>({std::string("OPT_NONE")})).nargs(0, 10).help("optimization levels");
+    program.add_argument("--train_only").default_value(false).implicit_value(true).help("train only");
 
     try {
         program.parse_args(argc, argv);
@@ -47,25 +48,36 @@ int main(int argc, char* argv[]) {
     std::string benchmarks_path = program.get<std::string>("benchmarks_path");
     std::string dataset = program.get<std::string>("dataset");
     std::string format = program.get<std::string>("format");
+    bool train_only = program.get<bool>("train_only");
+
     std::string base_path = std::format("{}/{}/origin/{}_base.{}", benchmarks_path, dataset, dataset, format);
     std::string query_path = std::format("{}/{}/origin/{}_query.{}", benchmarks_path, dataset, dataset, format);
     std::string groundtruth_path = std::format("{}/{}/result/groundtruth_{}.txt", benchmarks_path, dataset, k);
 
-    auto [base, nb, d] = loadFvecs(base_path);
-    auto [query, nq, _] = loadFvecs(query_path);
-
+    auto [nb, d] = loadFvecsInfo(base_path);
     size_t nlist = static_cast<size_t>(std::sqrt(nb));
 
     std::string index_path = std::format("{}/{}/index/index_nlist_{}_opt_{}.index", benchmarks_path, dataset, nlist, static_cast<int>(added_opt_levels));
-    Index index(d, nlist, 0, MetricType::METRIC_L2, added_opt_levels);
+    Index index;
 
     if (std::filesystem::exists(index_path)) {
+        std::cout << std::format("Loading index from {}", index_path) << std::endl;
         index.load_index(index_path);
     } else {
+        auto [base, nb, d] = loadFvecs(base_path);
+        nlist = static_cast<size_t>(std::sqrt(nb));
+        index = Index(d, nlist, 0, MetricType::METRIC_L2, added_opt_levels);
         index.train(nb, base.get());
         index.add(nb, base.get());
         index.save_index(index_path);
+        std::cout << std::format("Index saved to {}", index_path) << std::endl;
     }
+
+    if (train_only) {
+        return 0;
+    }
+
+    auto [query, nq, _] = loadFvecs(query_path);
 
     if (!std::filesystem::exists(groundtruth_path)) {
         // faiss::IndexFlatL2 quantizer(d);
@@ -85,8 +97,8 @@ int main(int argc, char* argv[]) {
         for (const OptLevel& opt_level : opt_levels) {
             index.opt_level = opt_level;
             std::string output_path = std::format("{}/{}/result/result_nlist_{}_nprobe_{}_opt_{}_k_{}.txt", benchmarks_path, dataset, nlist, nprobe, static_cast<int>(opt_level), k);
-            std::unique_ptr<float[]> distances(new float[nq * program.get<size_t>("k")]);
-            std::unique_ptr<idx_t[]> labels(new idx_t[nq * program.get<size_t>("k")]);
+            std::unique_ptr<float[]> distances = std::make_unique<float[]>(nq * k);
+            std::unique_ptr<idx_t[]> labels = std::make_unique<idx_t[]>(nq * k);
             index.search(nq, query.get(), k, distances.get(), labels.get());
             writeResultsToFile(labels.get(), distances.get(), nq, k, output_path);
         }

@@ -9,11 +9,12 @@
 #include <memory>
 #include <stdexcept>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 namespace tribase {
 
-inline std::tuple<std::unique_ptr<float[]>, size_t, int> loadFvecs(const std::string& filePath, std::pair<int, int> bounds = {1, 0}) {
+inline std::pair<size_t, int> loadFvecsInfo(const std::string& filePath) {
     std::ifstream file(filePath, std::ios::binary);
     if (!file.is_open()) {
         std::cerr << "Failed to open file: " << filePath << std::endl;
@@ -24,10 +25,26 @@ inline std::tuple<std::unique_ptr<float[]>, size_t, int> loadFvecs(const std::st
     int d;
     file.read(reinterpret_cast<char*>(&d), sizeof(int));
 
-    // 计算每个向量的大小（包括维度信息）
+    // 移动到文件末尾获取文件大小，计算向量数量
+    file.seekg(0, std::ios::end);
+    size_t fileSize = file.tellg();
+    size_t n = fileSize / (4 + d * 4);  // 减去初始的维度信息
+
+    return {n, d};
+}
+
+inline std::tuple<std::unique_ptr<float[]>, size_t, int> loadFvecs(const std::string& filePath, std::pair<int, int> bounds = {1, 0}) {
+    std::ifstream file(filePath, std::ios::binary);
+    if (!file.is_open()) {
+        std::cerr << "Failed to open file: " << filePath << std::endl;
+        return {};
+    }
+
+    int d;
+    file.read(reinterpret_cast<char*>(&d), sizeof(int));
+
     int vecSizeof = 4 + d * 4;  // int + d * float
 
-    // 移动到文件末尾获取文件大小，计算向量数量
     file.seekg(0, std::ios::end);
     size_t fileSize = file.tellg();
     size_t bmax = fileSize / vecSizeof;
@@ -37,19 +54,34 @@ inline std::tuple<std::unique_ptr<float[]>, size_t, int> loadFvecs(const std::st
 
     assert(a >= 1 && b <= bmax && b >= a);
 
-    size_t n = b - a + 1;  // 实际读取的向量数量
+    size_t n = b - a + 1;
     std::unique_ptr<float[]> vectors = std::make_unique<float[]>(n * d);
 
-    // 移动到起始位置
     file.seekg((a - 1) * vecSizeof, std::ios::beg);
 
-    // 读取向量
     for (size_t i = 0; i < n; ++i) {
-        file.seekg(4, std::ios::cur);  // 跳过向量维度
+        file.seekg(4, std::ios::cur);
         file.read(reinterpret_cast<char*>(vectors.get() + i * d), d * sizeof(float));
     }
 
     return std::make_tuple(std::move(vectors), n, d);
+}
+
+inline std::pair<size_t, int> loadBvecsInfo(const std::string& filePath) {
+    std::ifstream file(filePath, std::ios::binary);
+    if (!file.is_open()) {
+        std::cerr << "Failed to open file: " << filePath << std::endl;
+        return {};
+    }
+
+    int d;
+    file.read(reinterpret_cast<char*>(&d), sizeof(int));
+
+    file.seekg(0, std::ios::end);
+    size_t fileSize = file.tellg();
+    size_t n = fileSize / (4 + d);  // 减去初始的维度信息
+
+    return {n, d};
 }
 
 inline std::tuple<std::unique_ptr<uint8_t[]>, size_t, int> loadBvecs(const std::string& filePath, std::pair<int, int> bounds = {1, 0}) {
@@ -59,35 +91,28 @@ inline std::tuple<std::unique_ptr<uint8_t[]>, size_t, int> loadBvecs(const std::
         return {};
     }
 
-    // 移动到文件末尾获取文件大小
     file.seekg(0, std::ios::end);
     size_t fileSize = file.tellg();
-    // 回到文件开头
     file.seekg(0, std::ios::beg);
 
-    // 读取向量的维度
     int d;
     file.read(reinterpret_cast<char*>(&d), sizeof(int));
-    // 计算每个向量的大小（包括维度信息）
     int vecSizeof = 4 + d;  // int + d * uint8_t
 
-    // 计算向量数量
-    size_t bmax = (fileSize - 4) / vecSizeof;  // 减去初始的维度信息
+    size_t bmax = (fileSize - 4) / vecSizeof;
 
     size_t a = bounds.first;
     size_t b = (bounds.second == 0) ? bmax : bounds.second;
 
     assert(a >= 1 && b <= bmax && b >= a);
 
-    size_t n = b - a + 1;  // 实际读取的向量数量
+    size_t n = b - a + 1;
     std::unique_ptr<uint8_t[]> vectors = std::make_unique<uint8_t[]>(n * d);
 
-    // 移动到起始位置
-    file.seekg(4 + (a - 1) * vecSizeof, std::ios::beg);  // 跳过初始的维度信息
+    file.seekg(4 + (a - 1) * vecSizeof, std::ios::beg);
 
-    // 读取向量
     for (size_t i = 0; i < n; ++i) {
-        file.seekg(4, std::ios::cur);  // 跳过每个向量前的维度信息
+        file.seekg(4, std::ios::cur);
         file.read(reinterpret_cast<char*>(vectors.get() + i * d), d * sizeof(uint8_t));
     }
 

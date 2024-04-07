@@ -193,9 +193,8 @@ void Index::add(size_t n, const float* codes) {
                     double train_percent = 100.0 * train_elapsed / total_elapsed;
                     double add_percent = 100.0 * add_elapsed / total_elapsed;
                     double search_percent = 100.0 * search_elapsed / total_elapsed;
-                    printf("train: %.2f%% (%.2f%%)    add: %.2f%%    search: %.2f%%    total: %.2f\n",
+                    printf("train: %.2f%%    add: %.2f%%    search: %.2f%%    total: %.2f\n",
                            train_percent,
-                           all_train_count ? 100.0 * true_train_count / all_train_count : 1,
                            add_percent,
                            search_percent,
                            total_elapsed);
