@@ -15,6 +15,8 @@
 #include <vector>
 #include <mkl.h>
 #include "common.h"
+#include <mkl_cblas.h>
+
 
 namespace tribase {
 
@@ -157,44 +159,73 @@ class Stopwatch {
     std::chrono::time_point<std::chrono::high_resolution_clock> start;
 };
 
+
+
+//V0
 // inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size) {
-//     float distance = 0.0;
-//     for (size_t i = 0; i < size; ++i) {
-//         float diff = vec1[i] - vec2[i];
-//         distance += diff * diff;
-//     }
-//     return distance;
+//     // 计算 vec1 和 vec2 的 L2 范数的平方
+//     float norm1 = cblas_snrm2(size, vec1, 1);
+//     float norm2 = cblas_snrm2(size, vec2, 1);
+//     float norm1Sq = norm1 * norm1;
+//     float norm2Sq = norm2 * norm2;
+
+//     // 计算 vec1 和 vec2 的点积
+//     float dotProduct = cblas_sdot(size, vec1, 1, vec2, 1);
+
+//     // 使用前面的公式计算欧氏距离的平方
+//     float distanceSq = norm1Sq + norm2Sq - 2 * dotProduct;
+
+//     return distanceSq;
 // }
 
+//V1
+// inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size) {
+//     // 创建一个临时向量存储差值
+//     std::unique_ptr<float[]> diff(new float[size]);
 
-inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size) {
-    // 分配内存用于存储向量差
-    float* diff = (float*)mkl_malloc(size * sizeof(float), 64);
-    if (!diff) {
-        // 内存分配失败
-        return -1.0;
-    }
+//     // 计算 vec1 - vec2 的结果并存储在 diff 中
+//     // cblas_scopy 复制 vec1 到 diff
+//     cblas_scopy(size, vec1, 1, diff.get(), 1);
+//     // cblas_saxpy 计算 a*x + y 并存储结果在 y 中，这里我们使用它来计算 -vec2 + diff (即 diff - vec2)
+//     cblas_saxpy(size, -1.0, vec2, 1, diff.get(), 1);
 
-    // 初始化diff为vec1的副本
-    cblas_scopy(size, vec1, 1, diff, 1);
-    // 计算 vec1 - vec2，并将结果存储在diff中
-    cblas_saxpy(size, -1.0, vec2, 1, diff, 1);
+//     // 计算 diff 的点积，即欧氏距离的平方
+//     float distanceSq = cblas_sdot(size, diff.get(), 1, diff.get(), 1);
 
-    // 计算diff向量的L2范数的平方
-    float distance = cblas_snrm2(size, diff, 1);
-    distance = distance * distance;
+//     return distanceSq;
+// }
 
-    // 释放内存
-    mkl_free(diff);
+//V2
+// inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size) {
+//     // 计算 vec1 和 vec2 的点积
+//     float dotProduct12 = cblas_sdot(size, vec1, 1, vec2, 1);
+//     // 计算 vec1 的点积，即其 L2 范数的平方
+//     float dotProduct11 = cblas_sdot(size, vec1, 1, vec1, 1);
+//     // 计算 vec2 的点积，即其 L2 范数的平方
+//     float dotProduct22 = cblas_sdot(size, vec2, 1, vec2, 1);
 
-    return distance;
-}
+//     // 根据公式计算欧氏距离的平方：||vec1 - vec2||^2 = ||vec1||^2 + ||vec2||^2 - 2 * (vec1 . vec2)
+//     float distanceSq = dotProduct11 + dotProduct22 - 2 * dotProduct12;
 
+//     return distanceSq;
+// }
+
+//V3
 // inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size) {
 //     Eigen::Map<const Eigen::VectorXf> v1(vec1, size);
 //     Eigen::Map<const Eigen::VectorXf> v2(vec2, size);
 //     return (v1 - v2).squaredNorm();
 // }
+
+//V4
+inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size) {
+    float distance = 0.0;
+    for (size_t i = 0; i < size; ++i) {
+        float diff = vec1[i] - vec2[i];
+        distance += diff * diff;
+    }
+    return distance;
+}
 
 // float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size);
 
