@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
     program.add_argument("--opt_levels").default_value(std::vector<std::string>({"OPT_NONE", "OPT_TRIANGLE", "OPT_TRI_SUBNN_L2", "OPT_TRI_SUBNN_IP", "OPT_ALL"})).nargs(0, 10).help("optimization levels");
     // program.add_argument("--opt_levels").default_value(std::vector<std::string>({"OPT_TRI_SUBNN_L2"})).nargs(0, 10).help("optimization levels");
     program.add_argument("--train_only").default_value(false).implicit_value(true).help("train only");
-    program.add_argument("--cache").default_value(true).implicit_value(true).help("use cached index");
+    program.add_argument("--cache").default_value(false).implicit_value(true).help("use cached index");
     program.add_argument("--high_precision_subNN_index").default_value(false).implicit_value(true).help("use high precision subNN index");
     program.add_argument("--metric").default_value("l2").help("metric type");
     program.add_argument("--run_faiss").default_value(true).implicit_value(true).help("run faiss");
@@ -61,6 +61,7 @@ int main(int argc, char* argv[]) {
     std::string input_format = program.get<std::string>("input_format");
     std::string output_format = program.get<std::string>("output_format");
     std::string metric_str = program.get<std::string>("metric");
+    bool run_faiss = program.get<bool>("run_faiss");
     MetricType metric;
 
     if (str_lower_equal(metric_str, "l2")) {
@@ -129,22 +130,30 @@ int main(int argc, char* argv[]) {
     std::unique_ptr<idx_t[]> ground_truth_I = std::make_unique<idx_t[]>(k * nq);
     std::unique_ptr<float[]> ground_truth_D = std::make_unique<float[]>(k * nq);
 
+    std::vector<double> faiss_time(nprobes.size(), 0.0);
+    faiss::IndexFlatL2 quantizer(d);
+    faiss::IndexIVFFlat index_faiss(&quantizer, d, nlist);
+
     if (!std::filesystem::exists(groundtruth_path)) {
+        double faiss_groundtruth_time = 0.0;
         std::cout << std::format("Groundtruth file {} does not exist", groundtruth_path) << std::endl;
         if (base == nullptr) {
             std::tie(base, nb, d) = loadFvecs(base_path);
         }
-        faiss::IndexFlatL2 quantizer(d);
-        faiss::IndexIVFFlat index2(&quantizer, d, nlist);
-        index2.nprobe = nlist;
-        std::cout << std::format("Training groundtruth index") << std::endl;
-        index2.train(nb, base.get());
-        std::cout << std::format("Adding vectors to groundtruth index") << std::endl;
-        index2.add(nb, base.get());
-        std::cout << std::format("Searching groundtruth index") << std::endl;
-        index2.search(nq, query.get(), k, ground_truth_D.get(), ground_truth_I.get());
+        index_faiss.nprobe = nlist;
+        std::cout << std::format("Training Faiss index") << std::endl;
+        index_faiss.train(nb, base.get());
+        std::cout << std::format("Adding vectors to Faiss index") << std::endl;
+        index_faiss.add(nb, base.get());
+        std::cout << std::format("Searching Faiss index") << std::endl;
+        Stopwatch stopwatch;
+        index_faiss.search(nq, query.get(), k, ground_truth_D.get(), ground_truth_I.get());
+        faiss_groundtruth_time = stopwatch.elapsedSeconds();
         writeResultsToFile(ground_truth_I.get(), ground_truth_D.get(), nq, k, groundtruth_path);
         std::cout << std::format("Groundtruth file {} created", groundtruth_path) << std::endl;
+        if (nprobes.back() == nlist) {
+            faiss_time.back() = faiss_groundtruth_time;
+        }
     } else {
         std::cout << std::format("Loading groundtruth file {}", groundtruth_path) << std::endl;
         loadResults(groundtruth_path, ground_truth_I.get(), ground_truth_D.get(), nq, k);
@@ -155,7 +164,33 @@ int main(int argc, char* argv[]) {
         nprobes.back() = nlist;
     }
 
-    for (size_t nprobe : nprobes) {
+    if (run_faiss) {
+        std::cout << std::format("Running Faiss") << std::endl;
+        if (!index_faiss.is_trained) {
+            std::cout << std::format("Training Faiss index") << std::endl;
+            if (base == nullptr) {
+                std::tie(base, nb, d) = loadFvecs(base_path);
+            }
+            index_faiss.train(nb, base.get());
+            std::cout << std::format("Adding vectors to Faiss index") << std::endl;
+            index_faiss.add(nb, base.get());
+            std::cout << std::format("Faiss index trained") << std::endl;
+        }
+        for (size_t i = 0; i < nprobes.size(); i++) {
+            if (faiss_time[i] != 0) {
+                continue;
+            }
+            index_faiss.nprobe = nprobes[i];
+            Stopwatch stopwatch;
+            index_faiss.search(nq, query.get(), k, ground_truth_D.get(), ground_truth_I.get());
+            faiss_time[i] = stopwatch.elapsedSeconds();
+            std::cout << std::format("Faiss nprobe: {} time: {}", nprobes[i], faiss_time[i]) << std::endl;
+        }
+    }
+
+    for (size_t i = 0; i < nprobes.size(); i++) {
+        size_t nprobe = nprobes[i];
+        double f_time = run_faiss ? faiss_time[i] : 0.0;
         index.nprobe = nprobe;
         for (const OptLevel& opt_level : opt_levels) {
             index.opt_level = opt_level;
@@ -166,10 +201,11 @@ int main(int argc, char* argv[]) {
             Stopwatch stopwatch;
             Stats ststs = index.search(nq, query.get(), k, distances.get(), labels.get());
             ststs.query_time = stopwatch.elapsedSeconds();
+            ststs.faiss_query_time = f_time;
             ststs.print();
             writeResultsToFile(labels.get(), distances.get(), nq, k, output_path);
             float recall = calculate_recall(labels.get(), distances.get(), ground_truth_I.get(), ground_truth_D.get(), nq, k, metric);
-            // std::cout << std::format("Recall: {}", recall) << std::endl;
+            std::cout << std::format("Recall: {}", recall) << std::endl;
         }
     }
 }

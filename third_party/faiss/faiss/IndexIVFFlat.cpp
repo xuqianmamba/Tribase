@@ -195,7 +195,6 @@ struct IVFFlatScanner : InvertedListScanner {
         return nup;
     }
 
-    __attribute__((optimize("O0")))
     float my_fvec_L2sqr(const float* x, const float* y, size_t d) const {
         float sum = 0;
         for (size_t i = 0; i < d; i++) {

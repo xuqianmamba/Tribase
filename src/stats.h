@@ -77,11 +77,11 @@ class Stats {
 
     void print() {
         summary();
-        std::cout << std::format("tri: {}({:.2f}%) tri_large: {}({:.2f}%) subnn_L2: {}({:.2f}%) subnn_IP: {}({:.2f}%)\n)",
+        std::cout << std::format("tri: {}({:.2f}%) tri_large: {}({:.2f}%) subnn_L2: {}({:.2f}%) subnn_IP: {}({:.2f}%)\n",
                                  skip_triangle_count, pruning_triangle, skip_triangle_large_count, pruning_triangle_large,
                                  skip_subnn_L2_count, pruning_subnn_L2, skip_subnn_IP_count, pruning_subnn_IP)
                   << std::format("simi_update_rate: {:.2f}% check_L2: {} check_IP: {}\n", simi_update_rate, check_subnn_L2, check_subnn_IP)
-                  << std::format("time_speedup: {:.2f}% pruning_speedup: {:.2f}% query_time: {:.2f}", time_speedup, pruning_speedup, query_time);
+                  << std::format("time_speedup: {:.2f}% pruning_speedup: {:.2f}% query_time: {:.2f}\n", time_speedup, pruning_speedup, query_time);
     }
 
     void toCsv(std::string_view filename, bool append) {

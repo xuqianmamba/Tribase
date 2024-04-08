@@ -54,7 +54,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 # Valid values are "generic", "avx2".
-option(FAISS_OPT_LEVEL "" "generic")
+option(FAISS_OPT_LEVEL "" "avx2")
 option(FAISS_ENABLE_GPU "Enable support for GPU indexes." OFF)
 option(FAISS_ENABLE_RAFT "Enable RAFT for GPU indexes." OFF)
 option(FAISS_ENABLE_PYTHON "Build Python extension." OFF)
