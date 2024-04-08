@@ -40,36 +40,33 @@ rapids_cuda_init_architectures(faiss_c_library)
 endif()
 
 project(faiss
-  VERSION 1.7.4
+  VERSION 1.8.0
   DESCRIPTION "A library for efficient similarity search and clustering of dense vectors."
   HOMEPAGE_URL "https://github.com/facebookresearch/faiss"
   LANGUAGES ${FAISS_LANGUAGES})
 include(GNUInstallDirs)
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-# set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_CXX_STANDARD 17)
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
-# Valid values are "generic", "avx2".
-option(FAISS_OPT_LEVEL "" "avx2")
+# Valid values are "generic", "avx2", "avx512".
+option(FAISS_OPT_LEVEL "" "avx512")
 option(FAISS_ENABLE_GPU "Enable support for GPU indexes." OFF)
 option(FAISS_ENABLE_RAFT "Enable RAFT for GPU indexes." OFF)
 option(FAISS_ENABLE_PYTHON "Build Python extension." OFF)
 option(FAISS_ENABLE_C_API "Build C API." OFF)
-option(BUILD_TESTING "" OFF)
-option(BUILD_SHARED_LIBS "" ON)
+option(BUILD_SHARED_LIBS "Build shared libraries." ON)
+
 
 if(FAISS_ENABLE_GPU)
   set(CMAKE_CUDA_HOST_COMPILER ${CMAKE_CXX_COMPILER})
   enable_language(CUDA)
 endif()
 
-if(FAISS_ENABLE_RAFT)
-  find_package(raft COMPONENTS compiled distributed)
-endif()
+if(FAISS_ENABLE_RAFT AND NOT TARGET raft::raft)
+   find_package(raft COMPONENTS compiled distributed)
+ endif()
 
 add_subdirectory(faiss)
 
@@ -85,16 +82,16 @@ if(FAISS_ENABLE_C_API)
   add_subdirectory(c_api)
 endif()
 
-add_subdirectory(demos)
-add_subdirectory(benchs)
-add_subdirectory(tutorial/cpp)
+# add_subdirectory(demos)
+# add_subdirectory(benchs)
+# add_subdirectory(tutorial/cpp)
 
 # CTest must be included in the top level to enable `make test` target.
-include(CTest)
-if(BUILD_TESTING)
-  add_subdirectory(tests)
+# include(CTest)
+# if(BUILD_TESTING)
+#   add_subdirectory(tests)
 
-  if(FAISS_ENABLE_GPU)
-    add_subdirectory(faiss/gpu/test)
-  endif()
-endif()
+#   if(FAISS_ENABLE_GPU)
+#     add_subdirectory(faiss/gpu/test)
+#   endif()
+# endif()

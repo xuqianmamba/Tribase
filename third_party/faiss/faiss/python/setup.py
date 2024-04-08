@@ -25,13 +25,15 @@ prefix = "Release/" * (platform.system() == 'Windows')
 
 swigfaiss_generic_lib = f"{prefix}_swigfaiss{ext}"
 swigfaiss_avx2_lib = f"{prefix}_swigfaiss_avx2{ext}"
+swigfaiss_avx512_lib = f"{prefix}_swigfaiss_avx512{ext}"
 
 found_swigfaiss_generic = os.path.exists(swigfaiss_generic_lib)
 found_swigfaiss_avx2 = os.path.exists(swigfaiss_avx2_lib)
+found_swigfaiss_avx512 = os.path.exists(swigfaiss_avx512_lib)
 
-assert (found_swigfaiss_generic or found_swigfaiss_avx2), \
+assert (found_swigfaiss_generic or found_swigfaiss_avx2 or found_swigfaiss_avx512), \
     f"Could not find {swigfaiss_generic_lib} or " \
-    f"{swigfaiss_avx2_lib}. Faiss may not be compiled yet."
+    f"{swigfaiss_avx2_lib} or {swigfaiss_avx512_lib}. Faiss may not be compiled yet."
 
 if found_swigfaiss_generic:
     print(f"Copying {swigfaiss_generic_lib}")
@@ -43,6 +45,11 @@ if found_swigfaiss_avx2:
     shutil.copyfile("swigfaiss_avx2.py", "faiss/swigfaiss_avx2.py")
     shutil.copyfile(swigfaiss_avx2_lib, f"faiss/_swigfaiss_avx2{ext}")
 
+if found_swigfaiss_avx512:
+    print(f"Copying {swigfaiss_avx512_lib}")
+    shutil.copyfile("swigfaiss_avx512.py", "faiss/swigfaiss_avx512.py")
+    shutil.copyfile(swigfaiss_avx512_lib, f"faiss/_swigfaiss_avx512{ext}")
+
 long_description="""
 Faiss is a library for efficient similarity search and clustering of dense
 vectors. It contains algorithms that search in sets of vectors of any size,
@@ -53,7 +60,7 @@ are implemented on the GPU. It is developed by Facebook AI Research.
 """
 setup(
     name='faiss',
-    version='1.7.4',
+    version='1.8.0',
     description='A library for efficient similarity search and clustering of dense vectors',
     long_description=long_description,
     url='https://github.com/facebookresearch/faiss',
@@ -62,7 +69,7 @@ setup(
     license='MIT',
     keywords='search nearest neighbors',
 
-    install_requires=['numpy'],
+    install_requires=['numpy', 'packaging'],
     packages=['faiss', 'faiss.contrib'],
     package_data={
         'faiss': ['*.so', '*.pyd'],

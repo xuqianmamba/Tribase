@@ -4,6 +4,7 @@ set(SRC_FILES
     Clustering.cpp
     Index.cpp
     IVF.cpp
+    # utils.cpp
 )
 
 add_library(Tribase STATIC ${SRC_FILES})

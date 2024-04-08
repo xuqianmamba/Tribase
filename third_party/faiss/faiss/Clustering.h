@@ -40,7 +40,7 @@ struct ClusteringParameters {
     /// If fewer than this number of training vectors per centroid are provided,
     /// writes a warning. Note that fewer than 1 point per centroid raises an
     /// exception.
-    int min_points_per_centroid = 1;
+    int min_points_per_centroid = 39;
     /// to limit size of dataset, otherwise the training set is subsampled
     int max_points_per_centroid = 256;
     /// seed for the random number generator

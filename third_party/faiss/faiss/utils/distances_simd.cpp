@@ -80,11 +80,11 @@ float fvec_Linf_ref(const float* x, const float* y, size_t d) {
 }
 
 void fvec_L2sqr_ny_ref(
-    float* dis,
-    const float* x,
-    const float* y,
-    size_t d,
-    size_t ny) {
+        float* dis,
+        const float* x,
+        const float* y,
+        size_t d,
+        size_t ny) {
     for (size_t i = 0; i < ny; i++) {
         dis[i] = fvec_L2sqr(x, y, d);
         y += d;
@@ -92,13 +92,13 @@ void fvec_L2sqr_ny_ref(
 }
 
 void fvec_L2sqr_ny_y_transposed_ref(
-    float* dis,
-    const float* x,
-    const float* y,
-    const float* y_sqlen,
-    size_t d,
-    size_t d_offset,
-    size_t ny) {
+        float* dis,
+        const float* x,
+        const float* y,
+        const float* y_sqlen,
+        size_t d,
+        size_t d_offset,
+        size_t ny) {
     float x_sqlen = 0;
     for (size_t j = 0; j < d; j++) {
         x_sqlen += x[j] * x[j];
@@ -115,11 +115,11 @@ void fvec_L2sqr_ny_y_transposed_ref(
 }
 
 size_t fvec_L2sqr_ny_nearest_ref(
-    float* distances_tmp_buffer,
-    const float* x,
-    const float* y,
-    size_t d,
-    size_t ny) {
+        float* distances_tmp_buffer,
+        const float* x,
+        const float* y,
+        size_t d,
+        size_t ny) {
     fvec_L2sqr_ny(distances_tmp_buffer, x, y, d, ny);
 
     size_t nearest_idx = 0;
@@ -136,15 +136,15 @@ size_t fvec_L2sqr_ny_nearest_ref(
 }
 
 size_t fvec_L2sqr_ny_nearest_y_transposed_ref(
-    float* distances_tmp_buffer,
-    const float* x,
-    const float* y,
-    const float* y_sqlen,
-    size_t d,
-    size_t d_offset,
-    size_t ny) {
+        float* distances_tmp_buffer,
+        const float* x,
+        const float* y,
+        const float* y_sqlen,
+        size_t d,
+        size_t d_offset,
+        size_t ny) {
     fvec_L2sqr_ny_y_transposed_ref(
-        distances_tmp_buffer, x, y, y_sqlen, d, d_offset, ny);
+            distances_tmp_buffer, x, y, y_sqlen, d, d_offset, ny);
 
     size_t nearest_idx = 0;
     float min_dis = HUGE_VALF;
@@ -160,11 +160,11 @@ size_t fvec_L2sqr_ny_nearest_y_transposed_ref(
 }
 
 void fvec_inner_products_ny_ref(
-    float* ip,
-    const float* x,
-    const float* y,
-    size_t d,
-    size_t ny) {
+        float* ip,
+        const float* x,
+        const float* y,
+        size_t d,
+        size_t ny) {
     // BLAS slower for the use cases here
 #if 0
     {
@@ -214,7 +214,7 @@ FAISS_PRAGMA_IMPRECISE_FUNCTION_BEGIN
 float fvec_L2sqr(const float* x, const float* y, size_t d) {
     size_t i;
     float res = 0;
-    // FAISS_PRAGMA_IMPRECISE_LOOP
+    FAISS_PRAGMA_IMPRECISE_LOOP
     for (i = 0; i < d; i++) {
         const float tmp = x[i] - y[i];
         res += tmp * tmp;
@@ -227,16 +227,16 @@ FAISS_PRAGMA_IMPRECISE_FUNCTION_END
 /// between x and yi
 FAISS_PRAGMA_IMPRECISE_FUNCTION_BEGIN
 void fvec_inner_product_batch_4(
-    const float* __restrict x,
-    const float* __restrict y0,
-    const float* __restrict y1,
-    const float* __restrict y2,
-    const float* __restrict y3,
-    const size_t d,
-    float& dis0,
-    float& dis1,
-    float& dis2,
-    float& dis3) {
+        const float* __restrict x,
+        const float* __restrict y0,
+        const float* __restrict y1,
+        const float* __restrict y2,
+        const float* __restrict y3,
+        const size_t d,
+        float& dis0,
+        float& dis1,
+        float& dis2,
+        float& dis3) {
     float d0 = 0;
     float d1 = 0;
     float d2 = 0;
@@ -260,16 +260,16 @@ FAISS_PRAGMA_IMPRECISE_FUNCTION_END
 /// between x and yi, which is performance oriented.
 FAISS_PRAGMA_IMPRECISE_FUNCTION_BEGIN
 void fvec_L2sqr_batch_4(
-    const float* x,
-    const float* y0,
-    const float* y1,
-    const float* y2,
-    const float* y3,
-    const size_t d,
-    float& dis0,
-    float& dis1,
-    float& dis2,
-    float& dis3) {
+        const float* x,
+        const float* y0,
+        const float* y1,
+        const float* y2,
+        const float* y3,
+        const size_t d,
+        float& dis0,
+        float& dis1,
+        float& dis2,
+        float& dis3) {
     float d0 = 0;
     float d1 = 0;
     float d2 = 0;
@@ -302,8 +302,7 @@ FAISS_PRAGMA_IMPRECISE_FUNCTION_END
 // reads 0 <= d < 4 floats as __m128
 static inline __m128 masked_read(int d, const float* x) {
     assert(0 <= d && d < 4);
-    ALIGNED(16)
-    float buf[4] = {0, 0, 0, 0};
+    ALIGNED(16) float buf[4] = {0, 0, 0, 0};
     switch (d) {
         case 3:
             buf[2] = x[2];
@@ -341,7 +340,7 @@ inline float horizontal_sum(const __m128 v) {
 inline float horizontal_sum(const __m256 v) {
     // add high and low parts
     const __m128 v0 =
-        _mm_add_ps(_mm256_castps256_ps128(v), _mm256_extractf128_ps(v, 1));
+            _mm_add_ps(_mm256_castps256_ps128(v), _mm256_extractf128_ps(v, 1));
     // perform horizontal sum on v0
     return horizontal_sum(v0);
 }
@@ -404,7 +403,7 @@ void fvec_op_ny_D1(float* dis, const float* x, const float* y, size_t ny) {
         tmp = _mm_shuffle_ps(accu, accu, 3);
         dis[i + 3] = _mm_cvtss_f32(tmp);
     }
-    while (i < ny) {  // handle non-multiple-of-4 case
+    while (i < ny) { // handle non-multiple-of-4 case
         dis[i++] = ElementOp::op(x0s, *y++);
     }
 }
@@ -422,7 +421,7 @@ void fvec_op_ny_D2(float* dis, const float* x, const float* y, size_t ny) {
         accu = _mm_shuffle_ps(accu, accu, 3);
         dis[i + 1] = _mm_cvtss_f32(accu);
     }
-    if (i < ny) {  // handle odd case
+    if (i < ny) { // handle odd case
         dis[i] = ElementOp::op(x[0], y[0]) + ElementOp::op(x[1], y[1]);
     }
 }
@@ -431,23 +430,23 @@ void fvec_op_ny_D2(float* dis, const float* x, const float* y, size_t ny) {
 
 template <>
 void fvec_op_ny_D2<ElementOpIP>(
-    float* dis,
-    const float* x,
-    const float* y,
-    size_t ny) {
+        float* dis,
+        const float* x,
+        const float* y,
+        size_t ny) {
     const size_t ny8 = ny / 8;
     size_t i = 0;
 
     if (ny8 > 0) {
         // process 8 D2-vectors per loop.
-        _mm_prefetch(y, _MM_HINT_T0);
-        _mm_prefetch(y + 16, _MM_HINT_T0);
+        _mm_prefetch((const char*)y, _MM_HINT_T0);
+        _mm_prefetch((const char*)(y + 16), _MM_HINT_T0);
 
         const __m256 m0 = _mm256_set1_ps(x[0]);
         const __m256 m1 = _mm256_set1_ps(x[1]);
 
         for (i = 0; i < ny8 * 8; i += 8) {
-            _mm_prefetch(y + 32, _MM_HINT_T0);
+            _mm_prefetch((const char*)(y + 32), _MM_HINT_T0);
 
             // load 8x2 matrix and transpose it in registers.
             // the typical bottleneck is memory access, so
@@ -457,10 +456,10 @@ void fvec_op_ny_D2<ElementOpIP>(
             __m256 v1;
 
             transpose_8x2(
-                _mm256_loadu_ps(y + 0 * 8),
-                _mm256_loadu_ps(y + 1 * 8),
-                v0,
-                v1);
+                    _mm256_loadu_ps(y + 0 * 8),
+                    _mm256_loadu_ps(y + 1 * 8),
+                    v0,
+                    v1);
 
             // compute distances
             __m256 distances = _mm256_mul_ps(m0, v0);
@@ -488,23 +487,23 @@ void fvec_op_ny_D2<ElementOpIP>(
 
 template <>
 void fvec_op_ny_D2<ElementOpL2>(
-    float* dis,
-    const float* x,
-    const float* y,
-    size_t ny) {
+        float* dis,
+        const float* x,
+        const float* y,
+        size_t ny) {
     const size_t ny8 = ny / 8;
     size_t i = 0;
 
     if (ny8 > 0) {
         // process 8 D2-vectors per loop.
-        _mm_prefetch(y, _MM_HINT_T0);
-        _mm_prefetch(y + 16, _MM_HINT_T0);
+        _mm_prefetch((const char*)y, _MM_HINT_T0);
+        _mm_prefetch((const char*)(y + 16), _MM_HINT_T0);
 
         const __m256 m0 = _mm256_set1_ps(x[0]);
         const __m256 m1 = _mm256_set1_ps(x[1]);
 
         for (i = 0; i < ny8 * 8; i += 8) {
-            _mm_prefetch(y + 32, _MM_HINT_T0);
+            _mm_prefetch((const char*)(y + 32), _MM_HINT_T0);
 
             // load 8x2 matrix and transpose it in registers.
             // the typical bottleneck is memory access, so
@@ -514,10 +513,10 @@ void fvec_op_ny_D2<ElementOpL2>(
             __m256 v1;
 
             transpose_8x2(
-                _mm256_loadu_ps(y + 0 * 8),
-                _mm256_loadu_ps(y + 1 * 8),
-                v0,
-                v1);
+                    _mm256_loadu_ps(y + 0 * 8),
+                    _mm256_loadu_ps(y + 1 * 8),
+                    v0,
+                    v1);
 
             // compute differences
             const __m256 d0 = _mm256_sub_ps(m0, v0);
@@ -567,10 +566,10 @@ void fvec_op_ny_D4(float* dis, const float* x, const float* y, size_t ny) {
 
 template <>
 void fvec_op_ny_D4<ElementOpIP>(
-    float* dis,
-    const float* x,
-    const float* y,
-    size_t ny) {
+        float* dis,
+        const float* x,
+        const float* y,
+        size_t ny) {
     const size_t ny8 = ny / 8;
     size_t i = 0;
 
@@ -592,14 +591,14 @@ void fvec_op_ny_D4<ElementOpIP>(
             __m256 v3;
 
             transpose_8x4(
-                _mm256_loadu_ps(y + 0 * 8),
-                _mm256_loadu_ps(y + 1 * 8),
-                _mm256_loadu_ps(y + 2 * 8),
-                _mm256_loadu_ps(y + 3 * 8),
-                v0,
-                v1,
-                v2,
-                v3);
+                    _mm256_loadu_ps(y + 0 * 8),
+                    _mm256_loadu_ps(y + 1 * 8),
+                    _mm256_loadu_ps(y + 2 * 8),
+                    _mm256_loadu_ps(y + 3 * 8),
+                    v0,
+                    v1,
+                    v2,
+                    v3);
 
             // compute distances
             __m256 distances = _mm256_mul_ps(m0, v0);
@@ -628,10 +627,10 @@ void fvec_op_ny_D4<ElementOpIP>(
 
 template <>
 void fvec_op_ny_D4<ElementOpL2>(
-    float* dis,
-    const float* x,
-    const float* y,
-    size_t ny) {
+        float* dis,
+        const float* x,
+        const float* y,
+        size_t ny) {
     const size_t ny8 = ny / 8;
     size_t i = 0;
 
@@ -653,14 +652,14 @@ void fvec_op_ny_D4<ElementOpL2>(
             __m256 v3;
 
             transpose_8x4(
-                _mm256_loadu_ps(y + 0 * 8),
-                _mm256_loadu_ps(y + 1 * 8),
-                _mm256_loadu_ps(y + 2 * 8),
-                _mm256_loadu_ps(y + 3 * 8),
-                v0,
-                v1,
-                v2,
-                v3);
+                    _mm256_loadu_ps(y + 0 * 8),
+                    _mm256_loadu_ps(y + 1 * 8),
+                    _mm256_loadu_ps(y + 2 * 8),
+                    _mm256_loadu_ps(y + 3 * 8),
+                    v0,
+                    v1,
+                    v2,
+                    v3);
 
             // compute differences
             const __m256 d0 = _mm256_sub_ps(m0, v0);
@@ -715,10 +714,10 @@ void fvec_op_ny_D8(float* dis, const float* x, const float* y, size_t ny) {
 
 template <>
 void fvec_op_ny_D8<ElementOpIP>(
-    float* dis,
-    const float* x,
-    const float* y,
-    size_t ny) {
+        float* dis,
+        const float* x,
+        const float* y,
+        size_t ny) {
     const size_t ny8 = ny / 8;
     size_t i = 0;
 
@@ -748,22 +747,22 @@ void fvec_op_ny_D8<ElementOpIP>(
             __m256 v7;
 
             transpose_8x8(
-                _mm256_loadu_ps(y + 0 * 8),
-                _mm256_loadu_ps(y + 1 * 8),
-                _mm256_loadu_ps(y + 2 * 8),
-                _mm256_loadu_ps(y + 3 * 8),
-                _mm256_loadu_ps(y + 4 * 8),
-                _mm256_loadu_ps(y + 5 * 8),
-                _mm256_loadu_ps(y + 6 * 8),
-                _mm256_loadu_ps(y + 7 * 8),
-                v0,
-                v1,
-                v2,
-                v3,
-                v4,
-                v5,
-                v6,
-                v7);
+                    _mm256_loadu_ps(y + 0 * 8),
+                    _mm256_loadu_ps(y + 1 * 8),
+                    _mm256_loadu_ps(y + 2 * 8),
+                    _mm256_loadu_ps(y + 3 * 8),
+                    _mm256_loadu_ps(y + 4 * 8),
+                    _mm256_loadu_ps(y + 5 * 8),
+                    _mm256_loadu_ps(y + 6 * 8),
+                    _mm256_loadu_ps(y + 7 * 8),
+                    v0,
+                    v1,
+                    v2,
+                    v3,
+                    v4,
+                    v5,
+                    v6,
+                    v7);
 
             // compute distances
             __m256 distances = _mm256_mul_ps(m0, v0);
@@ -796,10 +795,10 @@ void fvec_op_ny_D8<ElementOpIP>(
 
 template <>
 void fvec_op_ny_D8<ElementOpL2>(
-    float* dis,
-    const float* x,
-    const float* y,
-    size_t ny) {
+        float* dis,
+        const float* x,
+        const float* y,
+        size_t ny) {
     const size_t ny8 = ny / 8;
     size_t i = 0;
 
@@ -829,22 +828,22 @@ void fvec_op_ny_D8<ElementOpL2>(
             __m256 v7;
 
             transpose_8x8(
-                _mm256_loadu_ps(y + 0 * 8),
-                _mm256_loadu_ps(y + 1 * 8),
-                _mm256_loadu_ps(y + 2 * 8),
-                _mm256_loadu_ps(y + 3 * 8),
-                _mm256_loadu_ps(y + 4 * 8),
-                _mm256_loadu_ps(y + 5 * 8),
-                _mm256_loadu_ps(y + 6 * 8),
-                _mm256_loadu_ps(y + 7 * 8),
-                v0,
-                v1,
-                v2,
-                v3,
-                v4,
-                v5,
-                v6,
-                v7);
+                    _mm256_loadu_ps(y + 0 * 8),
+                    _mm256_loadu_ps(y + 1 * 8),
+                    _mm256_loadu_ps(y + 2 * 8),
+                    _mm256_loadu_ps(y + 3 * 8),
+                    _mm256_loadu_ps(y + 4 * 8),
+                    _mm256_loadu_ps(y + 5 * 8),
+                    _mm256_loadu_ps(y + 6 * 8),
+                    _mm256_loadu_ps(y + 7 * 8),
+                    v0,
+                    v1,
+                    v2,
+                    v3,
+                    v4,
+                    v5,
+                    v6,
+                    v7);
 
             // compute differences
             const __m256 d0 = _mm256_sub_ps(m0, v0);
@@ -904,14 +903,14 @@ void fvec_op_ny_D12(float* dis, const float* x, const float* y, size_t ny) {
     }
 }
 
-}  // anonymous namespace
+} // anonymous namespace
 
 void fvec_L2sqr_ny(
-    float* dis,
-    const float* x,
-    const float* y,
-    size_t d,
-    size_t ny) {
+        float* dis,
+        const float* x,
+        const float* y,
+        size_t d,
+        size_t ny) {
     // optimized for a few special cases
 
 #define DISPATCH(dval)                                  \
@@ -933,11 +932,11 @@ void fvec_L2sqr_ny(
 }
 
 void fvec_inner_products_ny(
-    float* dis,
-    const float* x,
-    const float* y,
-    size_t d,
-    size_t ny) {
+        float* dis,
+        const float* x,
+        const float* y,
+        size_t d,
+        size_t ny) {
 #define DISPATCH(dval)                                  \
     case dval:                                          \
         fvec_op_ny_D##dval<ElementOpIP>(dis, x, y, ny); \
@@ -959,18 +958,17 @@ void fvec_inner_products_ny(
 #ifdef __AVX2__
 template <size_t DIM>
 void fvec_L2sqr_ny_y_transposed_D(
-    float* distances,
-    const float* x,
-    const float* y,
-    const float* y_sqlen,
-    const size_t d_offset,
-    size_t ny) {
+        float* distances,
+        const float* x,
+        const float* y,
+        const float* y_sqlen,
+        const size_t d_offset,
+        size_t ny) {
     // current index being processed
     size_t i = 0;
 
     // squared length of x
     float x_sqlen = 0;
-    ;
     for (size_t j = 0; j < DIM; j++) {
         x_sqlen += x[j] * x[j];
     }
@@ -1036,20 +1034,20 @@ void fvec_L2sqr_ny_y_transposed_D(
 #endif
 
 void fvec_L2sqr_ny_transposed(
-    float* dis,
-    const float* x,
-    const float* y,
-    const float* y_sqlen,
-    size_t d,
-    size_t d_offset,
-    size_t ny) {
+        float* dis,
+        const float* x,
+        const float* y,
+        const float* y_sqlen,
+        size_t d,
+        size_t d_offset,
+        size_t ny) {
     // optimized for a few special cases
 
 #ifdef __AVX2__
 #define DISPATCH(dval)                             \
     case dval:                                     \
         return fvec_L2sqr_ny_y_transposed_D<dval>( \
-            dis, x, y, y_sqlen, d_offset, ny);
+                dis, x, y, y_sqlen, d_offset, ny);
 
     switch (d) {
         DISPATCH(1)
@@ -1058,7 +1056,7 @@ void fvec_L2sqr_ny_transposed(
         DISPATCH(8)
         default:
             return fvec_L2sqr_ny_y_transposed_ref(
-                dis, x, y, y_sqlen, d, d_offset, ny);
+                    dis, x, y, y_sqlen, d, d_offset, ny);
     }
 #undef DISPATCH
 #else
@@ -1070,10 +1068,10 @@ void fvec_L2sqr_ny_transposed(
 #ifdef __AVX2__
 
 size_t fvec_L2sqr_ny_nearest_D2(
-    float* distances_tmp_buffer,
-    const float* x,
-    const float* y,
-    size_t ny) {
+        float* distances_tmp_buffer,
+        const float* x,
+        const float* y,
+        size_t ny) {
     // this implementation does not use distances_tmp_buffer.
 
     // current index being processed
@@ -1086,8 +1084,8 @@ size_t fvec_L2sqr_ny_nearest_D2(
     // process 8 D2-vectors per loop.
     const size_t ny8 = ny / 8;
     if (ny8 > 0) {
-        _mm_prefetch(y, _MM_HINT_T0);
-        _mm_prefetch(y + 16, _MM_HINT_T0);
+        _mm_prefetch((const char*)y, _MM_HINT_T0);
+        _mm_prefetch((const char*)(y + 16), _MM_HINT_T0);
 
         // track min distance and the closest vector independently
         // for each of 8 AVX2 components.
@@ -1102,16 +1100,16 @@ size_t fvec_L2sqr_ny_nearest_D2(
         const __m256 m1 = _mm256_set1_ps(x[1]);
 
         for (; i < ny8 * 8; i += 8) {
-            _mm_prefetch(y + 32, _MM_HINT_T0);
+            _mm_prefetch((const char*)(y + 32), _MM_HINT_T0);
 
             __m256 v0;
             __m256 v1;
 
             transpose_8x2(
-                _mm256_loadu_ps(y + 0 * 8),
-                _mm256_loadu_ps(y + 1 * 8),
-                v0,
-                v1);
+                    _mm256_loadu_ps(y + 0 * 8),
+                    _mm256_loadu_ps(y + 1 * 8),
+                    v0,
+                    v1);
 
             // compute differences
             const __m256 d0 = _mm256_sub_ps(m0, v0);
@@ -1124,19 +1122,19 @@ size_t fvec_L2sqr_ny_nearest_D2(
             // compare the new distances to the min distances
             // for each of 8 AVX2 components.
             __m256 comparison =
-                _mm256_cmp_ps(min_distances, distances, _CMP_LT_OS);
+                    _mm256_cmp_ps(min_distances, distances, _CMP_LT_OS);
 
             // update min distances and indices with closest vectors if needed.
             min_distances = _mm256_min_ps(distances, min_distances);
             min_indices = _mm256_castps_si256(_mm256_blendv_ps(
-                _mm256_castsi256_ps(current_indices),
-                _mm256_castsi256_ps(min_indices),
-                comparison));
+                    _mm256_castsi256_ps(current_indices),
+                    _mm256_castsi256_ps(min_indices),
+                    comparison));
 
             // update current indices values. Basically, +8 to each of the
             // 8 AVX2 components.
             current_indices =
-                _mm256_add_epi32(current_indices, indices_increment);
+                    _mm256_add_epi32(current_indices, indices_increment);
 
             // scroll y forward (8 vectors 2 DIM each).
             y += 16;
@@ -1180,10 +1178,10 @@ size_t fvec_L2sqr_ny_nearest_D2(
 }
 
 size_t fvec_L2sqr_ny_nearest_D4(
-    float* distances_tmp_buffer,
-    const float* x,
-    const float* y,
-    size_t ny) {
+        float* distances_tmp_buffer,
+        const float* x,
+        const float* y,
+        size_t ny) {
     // this implementation does not use distances_tmp_buffer.
 
     // current index being processed
@@ -1218,14 +1216,14 @@ size_t fvec_L2sqr_ny_nearest_D4(
             __m256 v3;
 
             transpose_8x4(
-                _mm256_loadu_ps(y + 0 * 8),
-                _mm256_loadu_ps(y + 1 * 8),
-                _mm256_loadu_ps(y + 2 * 8),
-                _mm256_loadu_ps(y + 3 * 8),
-                v0,
-                v1,
-                v2,
-                v3);
+                    _mm256_loadu_ps(y + 0 * 8),
+                    _mm256_loadu_ps(y + 1 * 8),
+                    _mm256_loadu_ps(y + 2 * 8),
+                    _mm256_loadu_ps(y + 3 * 8),
+                    v0,
+                    v1,
+                    v2,
+                    v3);
 
             // compute differences
             const __m256 d0 = _mm256_sub_ps(m0, v0);
@@ -1242,19 +1240,19 @@ size_t fvec_L2sqr_ny_nearest_D4(
             // compare the new distances to the min distances
             // for each of 8 AVX2 components.
             __m256 comparison =
-                _mm256_cmp_ps(min_distances, distances, _CMP_LT_OS);
+                    _mm256_cmp_ps(min_distances, distances, _CMP_LT_OS);
 
             // update min distances and indices with closest vectors if needed.
             min_distances = _mm256_min_ps(distances, min_distances);
             min_indices = _mm256_castps_si256(_mm256_blendv_ps(
-                _mm256_castsi256_ps(current_indices),
-                _mm256_castsi256_ps(min_indices),
-                comparison));
+                    _mm256_castsi256_ps(current_indices),
+                    _mm256_castsi256_ps(min_indices),
+                    comparison));
 
             // update current indices values. Basically, +8 to each of the
             // 8 AVX2 components.
             current_indices =
-                _mm256_add_epi32(current_indices, indices_increment);
+                    _mm256_add_epi32(current_indices, indices_increment);
 
             // scroll y forward (8 vectors 4 DIM each).
             y += 32;
@@ -1294,10 +1292,10 @@ size_t fvec_L2sqr_ny_nearest_D4(
 }
 
 size_t fvec_L2sqr_ny_nearest_D8(
-    float* distances_tmp_buffer,
-    const float* x,
-    const float* y,
-    size_t ny) {
+        float* distances_tmp_buffer,
+        const float* x,
+        const float* y,
+        size_t ny) {
     // this implementation does not use distances_tmp_buffer.
 
     // current index being processed
@@ -1340,22 +1338,22 @@ size_t fvec_L2sqr_ny_nearest_D8(
             __m256 v7;
 
             transpose_8x8(
-                _mm256_loadu_ps(y + 0 * 8),
-                _mm256_loadu_ps(y + 1 * 8),
-                _mm256_loadu_ps(y + 2 * 8),
-                _mm256_loadu_ps(y + 3 * 8),
-                _mm256_loadu_ps(y + 4 * 8),
-                _mm256_loadu_ps(y + 5 * 8),
-                _mm256_loadu_ps(y + 6 * 8),
-                _mm256_loadu_ps(y + 7 * 8),
-                v0,
-                v1,
-                v2,
-                v3,
-                v4,
-                v5,
-                v6,
-                v7);
+                    _mm256_loadu_ps(y + 0 * 8),
+                    _mm256_loadu_ps(y + 1 * 8),
+                    _mm256_loadu_ps(y + 2 * 8),
+                    _mm256_loadu_ps(y + 3 * 8),
+                    _mm256_loadu_ps(y + 4 * 8),
+                    _mm256_loadu_ps(y + 5 * 8),
+                    _mm256_loadu_ps(y + 6 * 8),
+                    _mm256_loadu_ps(y + 7 * 8),
+                    v0,
+                    v1,
+                    v2,
+                    v3,
+                    v4,
+                    v5,
+                    v6,
+                    v7);
 
             // compute differences
             const __m256 d0 = _mm256_sub_ps(m0, v0);
@@ -1380,19 +1378,19 @@ size_t fvec_L2sqr_ny_nearest_D8(
             // compare the new distances to the min distances
             // for each of 8 AVX2 components.
             __m256 comparison =
-                _mm256_cmp_ps(min_distances, distances, _CMP_LT_OS);
+                    _mm256_cmp_ps(min_distances, distances, _CMP_LT_OS);
 
             // update min distances and indices with closest vectors if needed.
             min_distances = _mm256_min_ps(distances, min_distances);
             min_indices = _mm256_castps_si256(_mm256_blendv_ps(
-                _mm256_castsi256_ps(current_indices),
-                _mm256_castsi256_ps(min_indices),
-                comparison));
+                    _mm256_castsi256_ps(current_indices),
+                    _mm256_castsi256_ps(min_indices),
+                    comparison));
 
             // update current indices values. Basically, +8 to each of the
             // 8 AVX2 components.
             current_indices =
-                _mm256_add_epi32(current_indices, indices_increment);
+                    _mm256_add_epi32(current_indices, indices_increment);
 
             // scroll y forward (8 vectors 8 DIM each).
             y += 64;
@@ -1433,36 +1431,36 @@ size_t fvec_L2sqr_ny_nearest_D8(
 
 #else
 size_t fvec_L2sqr_ny_nearest_D2(
-    float* distances_tmp_buffer,
-    const float* x,
-    const float* y,
-    size_t ny) {
+        float* distances_tmp_buffer,
+        const float* x,
+        const float* y,
+        size_t ny) {
     return fvec_L2sqr_ny_nearest_ref(distances_tmp_buffer, x, y, 2, ny);
 }
 
 size_t fvec_L2sqr_ny_nearest_D4(
-    float* distances_tmp_buffer,
-    const float* x,
-    const float* y,
-    size_t ny) {
+        float* distances_tmp_buffer,
+        const float* x,
+        const float* y,
+        size_t ny) {
     return fvec_L2sqr_ny_nearest_ref(distances_tmp_buffer, x, y, 4, ny);
 }
 
 size_t fvec_L2sqr_ny_nearest_D8(
-    float* distances_tmp_buffer,
-    const float* x,
-    const float* y,
-    size_t ny) {
+        float* distances_tmp_buffer,
+        const float* x,
+        const float* y,
+        size_t ny) {
     return fvec_L2sqr_ny_nearest_ref(distances_tmp_buffer, x, y, 8, ny);
 }
 #endif
 
 size_t fvec_L2sqr_ny_nearest(
-    float* distances_tmp_buffer,
-    const float* x,
-    const float* y,
-    size_t d,
-    size_t ny) {
+        float* distances_tmp_buffer,
+        const float* x,
+        const float* y,
+        size_t d,
+        size_t ny) {
     // optimized for a few special cases
 #define DISPATCH(dval) \
     case dval:         \
@@ -1481,12 +1479,12 @@ size_t fvec_L2sqr_ny_nearest(
 #ifdef __AVX2__
 template <size_t DIM>
 size_t fvec_L2sqr_ny_nearest_y_transposed_D(
-    float* distances_tmp_buffer,
-    const float* x,
-    const float* y,
-    const float* y_sqlen,
-    const size_t d_offset,
-    size_t ny) {
+        float* distances_tmp_buffer,
+        const float* x,
+        const float* y,
+        const float* y_sqlen,
+        const size_t d_offset,
+        size_t ny) {
     // this implementation does not use distances_tmp_buffer.
 
     // current index being processed
@@ -1531,25 +1529,25 @@ size_t fvec_L2sqr_ny_nearest_y_transposed_D(
             //   lowest distance.
             // x^2 is the constant that can be avoided.
             const __m256 distances =
-                _mm256_sub_ps(_mm256_loadu_ps(y_sqlen), dp);
+                    _mm256_sub_ps(_mm256_loadu_ps(y_sqlen), dp);
 
             // compare the new distances to the min distances
             // for each of 8 AVX2 components.
             const __m256 comparison =
-                _mm256_cmp_ps(min_distances, distances, _CMP_LT_OS);
+                    _mm256_cmp_ps(min_distances, distances, _CMP_LT_OS);
 
             // update min distances and indices with closest vectors if needed.
             min_distances =
-                _mm256_blendv_ps(distances, min_distances, comparison);
+                    _mm256_blendv_ps(distances, min_distances, comparison);
             min_indices = _mm256_castps_si256(_mm256_blendv_ps(
-                _mm256_castsi256_ps(current_indices),
-                _mm256_castsi256_ps(min_indices),
-                comparison));
+                    _mm256_castsi256_ps(current_indices),
+                    _mm256_castsi256_ps(min_indices),
+                    comparison));
 
             // update current indices values. Basically, +8 to each of the
             // 8 AVX2 components.
             current_indices =
-                _mm256_add_epi32(current_indices, indices_increment);
+                    _mm256_add_epi32(current_indices, indices_increment);
 
             // scroll y and y_sqlen forward.
             y += 8;
@@ -1597,19 +1595,19 @@ size_t fvec_L2sqr_ny_nearest_y_transposed_D(
 #endif
 
 size_t fvec_L2sqr_ny_nearest_y_transposed(
-    float* distances_tmp_buffer,
-    const float* x,
-    const float* y,
-    const float* y_sqlen,
-    size_t d,
-    size_t d_offset,
-    size_t ny) {
+        float* distances_tmp_buffer,
+        const float* x,
+        const float* y,
+        const float* y_sqlen,
+        size_t d,
+        size_t d_offset,
+        size_t ny) {
     // optimized for a few special cases
 #ifdef __AVX2__
 #define DISPATCH(dval)                                     \
     case dval:                                             \
         return fvec_L2sqr_ny_nearest_y_transposed_D<dval>( \
-            distances_tmp_buffer, x, y, y_sqlen, d_offset, ny);
+                distances_tmp_buffer, x, y, y_sqlen, d_offset, ny);
 
     switch (d) {
         DISPATCH(1)
@@ -1618,34 +1616,19 @@ size_t fvec_L2sqr_ny_nearest_y_transposed(
         DISPATCH(8)
         default:
             return fvec_L2sqr_ny_nearest_y_transposed_ref(
-                distances_tmp_buffer, x, y, y_sqlen, d, d_offset, ny);
+                    distances_tmp_buffer, x, y, y_sqlen, d, d_offset, ny);
     }
 #undef DISPATCH
 #else
     // non-AVX2 case
     return fvec_L2sqr_ny_nearest_y_transposed_ref(
-        distances_tmp_buffer, x, y, y_sqlen, d, d_offset, ny);
+            distances_tmp_buffer, x, y, y_sqlen, d, d_offset, ny);
 #endif
 }
 
 #endif
 
 #ifdef USE_AVX
-
-// reads 0 <= d < 8 floats as __m256
-static inline __m256 masked_read_8(int d, const float* x) {
-    assert(0 <= d && d < 8);
-    if (d < 4) {
-        __m256 res = _mm256_setzero_ps();
-        res = _mm256_insertf128_ps(res, masked_read(d, x), 0);
-        return res;
-    } else {
-        __m256 res = _mm256_setzero_ps();
-        res = _mm256_insertf128_ps(res, _mm_loadu_ps(x), 0);
-        res = _mm256_insertf128_ps(res, masked_read(d - 4, x + 4), 1);
-        return res;
-    }
-}
 
 float fvec_L1(const float* x, const float* y, size_t d) {
     __m256 msum1 = _mm256_setzero_ps();
@@ -1727,7 +1710,7 @@ float fvec_Linf(const float* x, const float* y, size_t d) {
     return _mm_cvtss_f32(msum2);
 }
 
-#elif defined(__SSE3__)  // But not AVX
+#elif defined(__SSE3__) // But not AVX
 
 float fvec_L1(const float* x, const float* y, size_t d) {
     return fvec_L1_ref(x, y, d);
@@ -1741,44 +1724,44 @@ float fvec_Linf(const float* x, const float* y, size_t d) {
 
 // not optimized for ARM
 void fvec_L2sqr_ny(
-    float* dis,
-    const float* x,
-    const float* y,
-    size_t d,
-    size_t ny) {
+        float* dis,
+        const float* x,
+        const float* y,
+        size_t d,
+        size_t ny) {
     fvec_L2sqr_ny_ref(dis, x, y, d, ny);
 }
 
 void fvec_L2sqr_ny_transposed(
-    float* dis,
-    const float* x,
-    const float* y,
-    const float* y_sqlen,
-    size_t d,
-    size_t d_offset,
-    size_t ny) {
+        float* dis,
+        const float* x,
+        const float* y,
+        const float* y_sqlen,
+        size_t d,
+        size_t d_offset,
+        size_t ny) {
     return fvec_L2sqr_ny_y_transposed_ref(dis, x, y, y_sqlen, d, d_offset, ny);
 }
 
 size_t fvec_L2sqr_ny_nearest(
-    float* distances_tmp_buffer,
-    const float* x,
-    const float* y,
-    size_t d,
-    size_t ny) {
+        float* distances_tmp_buffer,
+        const float* x,
+        const float* y,
+        size_t d,
+        size_t ny) {
     return fvec_L2sqr_ny_nearest_ref(distances_tmp_buffer, x, y, d, ny);
 }
 
 size_t fvec_L2sqr_ny_nearest_y_transposed(
-    float* distances_tmp_buffer,
-    const float* x,
-    const float* y,
-    const float* y_sqlen,
-    size_t d,
-    size_t d_offset,
-    size_t ny) {
+        float* distances_tmp_buffer,
+        const float* x,
+        const float* y,
+        const float* y_sqlen,
+        size_t d,
+        size_t d_offset,
+        size_t ny) {
     return fvec_L2sqr_ny_nearest_y_transposed_ref(
-        distances_tmp_buffer, x, y, y_sqlen, d, d_offset, ny);
+            distances_tmp_buffer, x, y, y_sqlen, d, d_offset, ny);
 }
 
 float fvec_L1(const float* x, const float* y, size_t d) {
@@ -1790,11 +1773,11 @@ float fvec_Linf(const float* x, const float* y, size_t d) {
 }
 
 void fvec_inner_products_ny(
-    float* dis,
-    const float* x,
-    const float* y,
-    size_t d,
-    size_t ny) {
+        float* dis,
+        const float* x,
+        const float* y,
+        size_t d,
+        size_t ny) {
     fvec_inner_products_ny_ref(dis, x, y, d, ny);
 }
 
@@ -1810,52 +1793,52 @@ float fvec_Linf(const float* x, const float* y, size_t d) {
 }
 
 void fvec_L2sqr_ny(
-    float* dis,
-    const float* x,
-    const float* y,
-    size_t d,
-    size_t ny) {
+        float* dis,
+        const float* x,
+        const float* y,
+        size_t d,
+        size_t ny) {
     fvec_L2sqr_ny_ref(dis, x, y, d, ny);
 }
 
 void fvec_L2sqr_ny_transposed(
-    float* dis,
-    const float* x,
-    const float* y,
-    const float* y_sqlen,
-    size_t d,
-    size_t d_offset,
-    size_t ny) {
+        float* dis,
+        const float* x,
+        const float* y,
+        const float* y_sqlen,
+        size_t d,
+        size_t d_offset,
+        size_t ny) {
     return fvec_L2sqr_ny_y_transposed_ref(dis, x, y, y_sqlen, d, d_offset, ny);
 }
 
 size_t fvec_L2sqr_ny_nearest(
-    float* distances_tmp_buffer,
-    const float* x,
-    const float* y,
-    size_t d,
-    size_t ny) {
+        float* distances_tmp_buffer,
+        const float* x,
+        const float* y,
+        size_t d,
+        size_t ny) {
     return fvec_L2sqr_ny_nearest_ref(distances_tmp_buffer, x, y, d, ny);
 }
 
 size_t fvec_L2sqr_ny_nearest_y_transposed(
-    float* distances_tmp_buffer,
-    const float* x,
-    const float* y,
-    const float* y_sqlen,
-    size_t d,
-    size_t d_offset,
-    size_t ny) {
+        float* distances_tmp_buffer,
+        const float* x,
+        const float* y,
+        const float* y_sqlen,
+        size_t d,
+        size_t d_offset,
+        size_t ny) {
     return fvec_L2sqr_ny_nearest_y_transposed_ref(
-        distances_tmp_buffer, x, y, y_sqlen, d, d_offset, ny);
+            distances_tmp_buffer, x, y, y_sqlen, d, d_offset, ny);
 }
 
 void fvec_inner_products_ny(
-    float* dis,
-    const float* x,
-    const float* y,
-    size_t d,
-    size_t ny) {
+        float* dis,
+        const float* x,
+        const float* y,
+        size_t d,
+        size_t ny) {
     fvec_inner_products_ny_ref(dis, x, y, d, ny);
 }
 
@@ -1865,23 +1848,23 @@ void fvec_inner_products_ny(
  * heavily optimized table computations
  ***************************************************************************/
 
-static inline void fvec_madd_ref(
-    size_t n,
-    const float* a,
-    float bf,
-    const float* b,
-    float* c) {
+[[maybe_unused]] static inline void fvec_madd_ref(
+        size_t n,
+        const float* a,
+        float bf,
+        const float* b,
+        float* c) {
     for (size_t i = 0; i < n; i++)
         c[i] = a[i] + bf * b[i];
 }
 
 #ifdef __AVX2__
 static inline void fvec_madd_avx2(
-    const size_t n,
-    const float* __restrict a,
-    const float bf,
-    const float* __restrict b,
-    float* __restrict c) {
+        const size_t n,
+        const float* __restrict a,
+        const float bf,
+        const float* __restrict b,
+        float* __restrict c) {
     //
     const size_t n8 = n / 8;
     const size_t n_for_masking = n % 8;
@@ -1932,12 +1915,12 @@ static inline void fvec_madd_avx2(
 
 #ifdef __SSE3__
 
-static inline void fvec_madd_sse(
-    size_t n,
-    const float* a,
-    float bf,
-    const float* b,
-    float* c) {
+[[maybe_unused]] static inline void fvec_madd_sse(
+        size_t n,
+        const float* a,
+        float bf,
+        const float* b,
+        float* c) {
     n >>= 2;
     __m128 bf4 = _mm_set_ps1(bf);
     __m128* a4 = (__m128*)a;
@@ -1988,11 +1971,11 @@ void fvec_madd(size_t n, const float* a, float bf, const float* b, float* c) {
 #endif
 
 static inline int fvec_madd_and_argmin_ref(
-    size_t n,
-    const float* a,
-    float bf,
-    const float* b,
-    float* c) {
+        size_t n,
+        const float* a,
+        float bf,
+        const float* b,
+        float* c) {
     float vmin = 1e20;
     int imin = -1;
 
@@ -2009,11 +1992,11 @@ static inline int fvec_madd_and_argmin_ref(
 #ifdef __SSE3__
 
 static inline int fvec_madd_and_argmin_sse(
-    size_t n,
-    const float* a,
-    float bf,
-    const float* b,
-    float* c) {
+        size_t n,
+        const float* a,
+        float bf,
+        const float* b,
+        float* c) {
     n >>= 2;
     __m128 bf4 = _mm_set_ps1(bf);
     __m128 vmin4 = _mm_set_ps1(1e20);
@@ -2031,7 +2014,7 @@ static inline int fvec_madd_and_argmin_sse(
         // imin4 = _mm_blendv_epi8 (imin4, idx4, mask); // slower!
 
         imin4 = _mm_or_si128(
-            _mm_and_si128(mask, idx4), _mm_andnot_si128(mask, imin4));
+                _mm_and_si128(mask, idx4), _mm_andnot_si128(mask, imin4));
         vmin4 = _mm_min_ps(vmin4, vc4);
         b4++;
         a4++;
@@ -2045,7 +2028,7 @@ static inline int fvec_madd_and_argmin_sse(
         __m128 vc4 = _mm_shuffle_ps(vmin4, vmin4, 3 << 2 | 2);
         __m128i mask = _mm_castps_si128(_mm_cmpgt_ps(vmin4, vc4));
         imin4 = _mm_or_si128(
-            _mm_and_si128(mask, idx4), _mm_andnot_si128(mask, imin4));
+                _mm_and_si128(mask, idx4), _mm_andnot_si128(mask, imin4));
         vmin4 = _mm_min_ps(vmin4, vc4);
     }
     // 2 values -> 1
@@ -2054,18 +2037,18 @@ static inline int fvec_madd_and_argmin_sse(
         __m128 vc4 = _mm_shuffle_ps(vmin4, vmin4, 1);
         __m128i mask = _mm_castps_si128(_mm_cmpgt_ps(vmin4, vc4));
         imin4 = _mm_or_si128(
-            _mm_and_si128(mask, idx4), _mm_andnot_si128(mask, imin4));
+                _mm_and_si128(mask, idx4), _mm_andnot_si128(mask, imin4));
         // vmin4 = _mm_min_ps (vmin4, vc4);
     }
     return _mm_cvtsi128_si32(imin4);
 }
 
 int fvec_madd_and_argmin(
-    size_t n,
-    const float* a,
-    float bf,
-    const float* b,
-    float* c) {
+        size_t n,
+        const float* a,
+        float bf,
+        const float* b,
+        float* c) {
     if ((n & 3) == 0 && ((((long)a) | ((long)b) | ((long)c)) & 15) == 0)
         return fvec_madd_and_argmin_sse(n, a, bf, b, c);
     else
@@ -2075,11 +2058,11 @@ int fvec_madd_and_argmin(
 #elif defined(__aarch64__)
 
 int fvec_madd_and_argmin(
-    size_t n,
-    const float* a,
-    float bf,
-    const float* b,
-    float* c) {
+        size_t n,
+        const float* a,
+        float bf,
+        const float* b,
+        float* c) {
     float32x4_t vminv = vdupq_n_f32(1e20);
     uint32x4_t iminv = vdupq_n_u32(static_cast<uint32_t>(-1));
     size_t i;
@@ -2097,8 +2080,8 @@ int fvec_madd_and_argmin(
             const uint32x4_t less_than = vcltq_f32(ci, vminv);
             vminv = vminq_f32(ci, vminv);
             iminv = vorrq_u32(
-                vandq_u32(less_than, iv),
-                vandq_u32(vmvnq_u32(less_than), iminv));
+                    vandq_u32(less_than, iv),
+                    vandq_u32(vmvnq_u32(less_than), iminv));
             iv = vaddq_u32(iv, incv);
         }
     }
@@ -2108,10 +2091,10 @@ int fvec_madd_and_argmin(
         const float32x4_t vminy = vdupq_n_f32(vmin);
         const uint32x4_t equals = vceqq_f32(vminv, vminy);
         imin = vminvq_u32(vorrq_u32(
-            vandq_u32(equals, iminv),
-            vandq_u32(
-                vmvnq_u32(equals),
-                vdupq_n_u32(std::numeric_limits<uint32_t>::max()))));
+                vandq_u32(equals, iminv),
+                vandq_u32(
+                        vmvnq_u32(equals),
+                        vdupq_n_u32(std::numeric_limits<uint32_t>::max()))));
     }
     for (; i < n; ++i) {
         c[i] = a[i] + bf * b[i];
@@ -2126,11 +2109,11 @@ int fvec_madd_and_argmin(
 #else
 
 int fvec_madd_and_argmin(
-    size_t n,
-    const float* a,
-    float bf,
-    const float* b,
-    float* c) {
+        size_t n,
+        const float* a,
+        float bf,
+        const float* b,
+        float* c) {
     return fvec_madd_and_argmin_ref(n, a, bf, b, c);
 }
 
@@ -2145,11 +2128,11 @@ namespace {
 /// compute the IP for dsub = 2 for 8 centroids and 4 sub-vectors at a time
 template <bool is_inner_product>
 void pq2_8cents_table(
-    const simd8float32 centroids[8],
-    const simd8float32 x,
-    float* out,
-    size_t ldo,
-    size_t nout = 4) {
+        const simd8float32 centroids[8],
+        const simd8float32 x,
+        float* out,
+        size_t ldo,
+        size_t nout = 4) {
     simd8float32 ips[4];
 
     for (int i = 0; i < 4; i++) {
@@ -2192,8 +2175,7 @@ void pq2_8cents_table(
 }
 
 simd8float32 load_simd8float32_partial(const float* x, int n) {
-    ALIGNED(32)
-    float tmp[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+    ALIGNED(32) float tmp[8] = {0, 0, 0, 0, 0, 0, 0, 0};
     float* wp = tmp;
     for (int i = 0; i < n; i++) {
         *wp++ = *x++;
@@ -2201,16 +2183,16 @@ simd8float32 load_simd8float32_partial(const float* x, int n) {
     return simd8float32(tmp);
 }
 
-}  // anonymous namespace
+} // anonymous namespace
 
 void compute_PQ_dis_tables_dsub2(
-    size_t d,
-    size_t ksub,
-    const float* all_centroids,
-    size_t nx,
-    const float* x,
-    bool is_inner_product,
-    float* dis_tables) {
+        size_t d,
+        size_t ksub,
+        const float* all_centroids,
+        size_t nx,
+        const float* x,
+        bool is_inner_product,
+        float* dis_tables) {
     size_t M = d / 2;
     FAISS_THROW_IF_NOT(ksub % 8 == 0);
 
@@ -2219,8 +2201,7 @@ void compute_PQ_dis_tables_dsub2(
         for (int k0 = 0; k0 < ksub; k0 += 8) {
             simd8float32 centroids[8];
             for (int k = 0; k < 8; k++) {
-                ALIGNED(32)
-                float centroid[8];
+                ALIGNED(32) float centroid[8];
                 size_t wp = 0;
                 size_t rp = (m0 * ksub + k + k0) * 2;
                 for (int m = m0; m < m1; m++) {
@@ -2236,23 +2217,23 @@ void compute_PQ_dis_tables_dsub2(
                     xi.loadu(x + i * d + m0 * 2);
                 } else {
                     xi = load_simd8float32_partial(
-                        x + i * d + m0 * 2, 2 * (m1 - m0));
+                            x + i * d + m0 * 2, 2 * (m1 - m0));
                 }
 
                 if (is_inner_product) {
                     pq2_8cents_table<true>(
-                        centroids,
-                        xi,
-                        dis_tables + (i * M + m0) * ksub + k0,
-                        ksub,
-                        m1 - m0);
+                            centroids,
+                            xi,
+                            dis_tables + (i * M + m0) * ksub + k0,
+                            ksub,
+                            m1 - m0);
                 } else {
                     pq2_8cents_table<false>(
-                        centroids,
-                        xi,
-                        dis_tables + (i * M + m0) * ksub + k0,
-                        ksub,
-                        m1 - m0);
+                            centroids,
+                            xi,
+                            dis_tables + (i * M + m0) * ksub + k0,
+                            ksub,
+                            m1 - m0);
                 }
             }
         }
@@ -2308,4 +2289,4 @@ void fvec_add(size_t d, const float* a, float b, float* c) {
     }
 }
 
-}  // namespace faiss
+} // namespace faiss

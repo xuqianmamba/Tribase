@@ -81,6 +81,9 @@ typedef uint64_t size_t;
 #include <faiss/IndexFastScan.h>
 #include <faiss/IndexAdditiveQuantizerFastScan.h>
 #include <faiss/IndexPQFastScan.h>
+#include <faiss/utils/simdlib.h>
+#include <faiss/impl/simd_result_handlers.h>
+
 #include <faiss/IndexIVFFastScan.h>
 #include <faiss/IndexIVFAdditiveQuantizerFastScan.h>
 #include <faiss/IndexIVFPQFastScan.h>
@@ -144,9 +147,7 @@ typedef uint64_t size_t;
 #include <faiss/impl/CodePacker.h>
 
 #include <faiss/invlists/BlockInvertedLists.h>
-#include <faiss/IndexIVFwithDistance.h>
-#include <faiss/invlists/InvertedListswithDistance.h>
-#include  <faiss/IndexFlatwithDistance.h>
+
 #ifndef _MSC_VER
 #include <faiss/invlists/OnDiskInvertedLists.h>
 #endif // !_MSC_VER
@@ -457,11 +458,8 @@ void gpu_sync_all_devices()
 %ignore faiss::nndescent::Nhood::lock;
 %include  <faiss/impl/NNDescent.h>
 %include  <faiss/IndexNNDescent.h>
-%include  <faiss/IndexIVFFlat.h>
-%include  <faiss/IndexFlatwithDistance.h>
-%include <faiss/invlists/InvertedListswithDistance.h>
-%include <faiss/IndexIVFwithDistance.h>
 
+%include  <faiss/IndexIVFFlat.h>
 
 %warnfilter(509) faiss::nsg::Graph< int >::at(int,int);
 
@@ -495,6 +493,11 @@ void gpu_sync_all_devices()
 %include  <faiss/IndexFastScan.h>
 %include  <faiss/IndexAdditiveQuantizerFastScan.h>
 %include  <faiss/IndexPQFastScan.h>
+
+// NOTE(matthijs) let's not go into wrapping simdlib
+struct faiss::simd16uint16 {};
+
+%include  <faiss/impl/simd_result_handlers.h>
 %include  <faiss/IndexIVFFastScan.h>
 %include  <faiss/IndexIVFAdditiveQuantizerFastScan.h>
 %include  <faiss/IndexIVFIndependentQuantizer.h>
@@ -623,9 +626,6 @@ void gpu_sync_all_devices()
     DOWNCAST ( IndexIVFPQFastScan )
     DOWNCAST ( IndexIVFSpectralHash )
     DOWNCAST ( IndexIVFScalarQuantizer )
-    DOWNCAST (InvertedListswithDistance)
-    DOWNCAST (IndexIVFwithDistance)
-    DOWNCAST (IndexFlatwithDistance)
     DOWNCAST ( IndexIVFResidualQuantizer )
     DOWNCAST ( IndexIVFLocalSearchQuantizer )
     DOWNCAST ( IndexIVFProductResidualQuantizer )
@@ -1022,14 +1022,14 @@ PyObject *swig_ptr (PyObject *a)
         return SWIG_NewPointerObj(data, SWIGTYPE_p_bool, 0);
     }
     if(PyArray_TYPE(ao) == NPY_UINT64) {
-#ifdef SWIGWORDSIZE64
+#if (__SIZEOF_LONG__ == 8)
         return SWIG_NewPointerObj(data, SWIGTYPE_p_unsigned_long, 0);
 #else
         return SWIG_NewPointerObj(data, SWIGTYPE_p_unsigned_long_long, 0);
 #endif
     }
     if(PyArray_TYPE(ao) == NPY_INT64) {
-#ifdef SWIGWORDSIZE64
+#if  (__SIZEOF_LONG__ == 8)
         return SWIG_NewPointerObj(data, SWIGTYPE_p_long, 0);
 #else
         return SWIG_NewPointerObj(data, SWIGTYPE_p_long_long, 0);

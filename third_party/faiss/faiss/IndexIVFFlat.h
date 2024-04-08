@@ -32,7 +32,8 @@ struct IndexIVFFlat : IndexIVF {
             idx_t n,
             const float* x,
             const idx_t* xids,
-            const idx_t* precomputed_idx) override;
+            const idx_t* precomputed_idx,
+            void* inverted_list_context = nullptr) override;
 
     void encode_vectors(
             idx_t n,
@@ -44,11 +45,6 @@ struct IndexIVFFlat : IndexIVF {
     InvertedListScanner* get_InvertedListScanner(
             bool store_pairs,
             const IDSelector* sel) const override;
-
-    InvertedListScanner* get_opt_InvertedListScanner(
-        bool store_pairs,
-        const IDSelector* sel,
-        int opt_level) const;
 
     void reconstruct_from_offset(int64_t list_no, int64_t offset, float* recons)
             const override;

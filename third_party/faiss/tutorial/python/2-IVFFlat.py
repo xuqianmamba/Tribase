@@ -5,66 +5,30 @@
 
 import numpy as np
 
+d = 64                           # dimension
+nb = 100000                      # database size
+nq = 10000                       # nb of queries
+np.random.seed(1234)             # make reproducible
+xb = np.random.random((nb, d)).astype('float32')
+xb[:, 0] += np.arange(nb) / 1000.
+xq = np.random.random((nq, d)).astype('float32')
+xq[:, 0] += np.arange(nq) / 1000.
 
-def test():
-    d = 64  # dimension
-    nb = 100000  # database size
-    nq = 10000  # nb of queries
-    np.random.seed(1234)  # make reproducible
-    xb = np.random.random((nb, d)).astype("float32")
-    xb[:, 0] += np.arange(nb) / 1000.0
-    xq = np.random.random((nq, d)).astype("float32")
-    xq[:, 0] += np.arange(nq) / 1000.0
+import faiss
 
-    import faiss
+nlist = 100
+k = 4
+quantizer = faiss.IndexFlatL2(d)  # the other index
+index = faiss.IndexIVFFlat(quantizer, d, nlist, faiss.METRIC_L2)
+# here we specify METRIC_L2, by default it performs inner-product search
 
-    nlist = 100
-    k = 4
-    quantizer = faiss.IndexFlatL2(d)  # the other index
-    index = faiss.IndexIVFwithDistance(quantizer, d, nlist, faiss.METRIC_L2)
-    # here we specify METRIC_L2, by default it performs inner-product search
+assert not index.is_trained
+index.train(xb)
+assert index.is_trained
 
-    assert not index.is_trained
-    index.train(xb)
-    assert index.is_trained
-
-    index.add(xb)  # add may be a bit slower as well
-    D, I = index.search(xq, k)  # actual search
-    print(I[-5:])  # neighbors of the 5 last queries
-    index.nprobe = 10  # default nprobe is 1, try a few more
-    D, I = index.search(xq, k)
-    print(I[-5:])  # neighbors of the 5 last queries
-    return index
-
-
-def test2(index):
-    d = 64  # dimension
-    nb = 100000  # database size
-    nq = 10000  # nb of queries
-    np.random.seed(1234)  # make reproducible
-    xb = np.random.random((nb, d)).astype("float32")
-    xb[:, 0] += np.arange(nb) / 1000.0
-    xq = np.random.random((nq, d)).astype("float32")
-    xq[:, 0] += np.arange(nq) / 1000.0
-
-    import faiss
-
-    nlist = 100
-    k = 4
-    # here we specify METRIC_L2, by default it performs inner-product search
-
-    assert not index.is_trained
-    index.train(xb)
-    assert index.is_trained
-
-    index.add(xb)  # add may be a bit slower as well
-    D, I = index.search(xq, k)  # actual search
-    print(I[-5:])  # neighbors of the 5 last queries
-    index.nprobe = 10  # default nprobe is 1, try a few more
-    D, I = index.search(xq, k)
-    print(I[-5:])  # neighbors of the 5 last queries
-    return index
-
-
-i = test()
-test2(i)
+index.add(xb)                  # add may be a bit slower as well
+D, I = index.search(xq, k)     # actual search
+print(I[-5:])                  # neighbors of the 5 last queries
+index.nprobe = 10              # default nprobe is 1, try a few more
+D, I = index.search(xq, k)
+print(I[-5:])                  # neighbors of the 5 last queries

@@ -352,16 +352,6 @@ struct FlatL2WithNormsDis : FlatCodesDistanceComputer {
 
 } // namespace
 
-
-void IndexFlatL2::assign(idx_t n, const float* x, idx_t* labels, idx_t k, float* dis2nearest_center) {
-    distances = new float[n * k];
-    IndexFlat::search(n, x, k, distances, labels, nullptr);
-#pragma omp parallel for
-    for (idx_t i = 0; i < n; ++i) {
-        dis2nearest_center[i] = distances[i * k];
-    }
-}
-
 void IndexFlatL2::sync_l2norms() {
     cached_l2norms.resize(ntotal);
     fvec_norms_L2sqr(

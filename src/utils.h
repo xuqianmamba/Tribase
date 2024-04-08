@@ -1,5 +1,6 @@
 #pragma once
 
+#include <Eigen/Dense>
 #include <cassert>
 #include <chrono>
 #include <cmath>
@@ -155,18 +156,22 @@ class Stopwatch {
     std::chrono::time_point<std::chrono::high_resolution_clock> start;
 };
 
-// Calculates the Euclidean distance between two vectors
-inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size) {
-    float distance = 0.0;
-    // Calculate the squared difference for each dimension
-    for (size_t i = 0; i < size; ++i) {
-        float diff = vec1[i] - vec2[i];
-        distance += diff * diff;
-    }
-    return distance;
+// inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size) {
+//     float distance = 0.0;
+//     for (size_t i = 0; i < size; ++i) {
+//         float diff = vec1[i] - vec2[i];
+//         distance += diff * diff;
+//     }
+//     return distance;
+// }
 
-    // return sqrt(distance);
+inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size) {
+    Eigen::Map<const Eigen::VectorXf> v1(vec1, size);
+    Eigen::Map<const Eigen::VectorXf> v2(vec2, size);
+    return (v1 - v2).squaredNorm();
 }
+
+// float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size);
 
 // Calculates the inner product between two vectors
 inline float calculatedInnerProduct(const float* vec1, const float* vec2, size_t size) {

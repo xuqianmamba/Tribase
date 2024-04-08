@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
     program.add_argument("--cache").default_value(false).implicit_value(true).help("use cached index");
     program.add_argument("--high_precision_subNN_index").default_value(false).implicit_value(true).help("use high precision subNN index");
     program.add_argument("--metric").default_value("l2").help("metric type");
-    program.add_argument("--run_faiss").default_value(true).implicit_value(true).help("run faiss");
+    program.add_argument("--run_faiss").default_value(false).implicit_value(true).help("run faiss");
 
     try {
         program.parse_args(argc, argv);
@@ -134,7 +134,7 @@ int main(int argc, char* argv[]) {
     faiss::IndexFlatL2 quantizer(d);
     faiss::IndexIVFFlat index_faiss(&quantizer, d, nlist);
 
-    if (!std::filesystem::exists(groundtruth_path)) {
+    if (!std::filesystem::exists(groundtruth_path) || true) {
         double faiss_groundtruth_time = 0.0;
         std::cout << std::format("Groundtruth file {} does not exist", groundtruth_path) << std::endl;
         if (base == nullptr) {
@@ -150,7 +150,7 @@ int main(int argc, char* argv[]) {
         index_faiss.search(nq, query.get(), k, ground_truth_D.get(), ground_truth_I.get());
         faiss_groundtruth_time = stopwatch.elapsedSeconds();
         writeResultsToFile(ground_truth_I.get(), ground_truth_D.get(), nq, k, groundtruth_path);
-        std::cout << std::format("Groundtruth file {} created", groundtruth_path) << std::endl;
+        std::cout << std::format("Groundtruth file {} created using {} s", groundtruth_path, faiss_groundtruth_time) << std::endl;
         if (nprobes.back() == nlist) {
             faiss_time.back() = faiss_groundtruth_time;
         }

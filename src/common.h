@@ -1,6 +1,9 @@
 #pragma once
+
+#ifndef NDEBUG
 #define DEBUG
 // #define CORRECTNESS_CHECK
+#endif
 
 #ifdef DEBUG
 #define IF_STATS if (stats)
