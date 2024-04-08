@@ -1,5 +1,5 @@
 #pragma once
-// #define DEBUG
+#define DEBUG
 // #define CORRECTNESS_CHECK
 
 #ifdef DEBUG

@@ -12,6 +12,7 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include "common.h"
 
 namespace tribase {
 
@@ -267,6 +268,14 @@ inline void loadResults(const std::string& filePath, idx_t* labels, float* dista
     }
 }
 
+inline float relative_error(float x, float y) {
+    if (x == 0) {
+        return std::abs(y);
+    } else {
+        return std::abs((x - y) / x);
+    }
+}
+
 inline float calculate_recall(const idx_t* I, const float* D, const idx_t* GT, const float* GD, size_t nq, size_t k, MetricType metric, size_t gt_k = 0) {
     if (gt_k == 0) {
         gt_k = k;
@@ -298,8 +307,11 @@ inline float calculate_recall(const idx_t* I, const float* D, const idx_t* GT, c
                 if (I[i * k + j] == -1) {
                     break;
                 }
-                if (D[i * k + j] <= topK + 1e-6) {
+                if (D[i * k + j] <= topK || relative_error(D[i * k + j], topK) < 1e-5) {
                     correct++;
+                } else {
+                    std::cerr << std::format("D[{}, {}]= {} > topK= {}", i, j, D[i * k + j], topK) << std::endl;
+                    assert(false);
                 }
             }
         }
@@ -315,8 +327,11 @@ inline float calculate_recall(const idx_t* I, const float* D, const idx_t* GT, c
                 if (I[i * k + j] == -1) {
                     break;
                 }
-                if (D[i * k + j] + 1e-6 >= topK) {
+                if (D[i * k + j] >= topK || relative_error(D[i * k + j], topK) < 1e-5) {
                     correct++;
+                } else {
+                    std::cerr << std::format("D[{}, {}]= {} < topK= {}", i, j, D[i * k + j], topK) << std::endl;
+                    assert(false);
                 }
             }
         }

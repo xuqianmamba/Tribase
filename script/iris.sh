@@ -15,4 +15,5 @@ cd ..
 # ./debug/bin/query --benchmarks_path ./benchmarks --dataset iris --k 5 --nprobes 0 --opt_levels OPT_SUBNN_IP --high_precision_subNN_index
 # sudo ./debug/bin/query --dataset sift1m --nprobes 0 --high_precision_subNN_index
 # sudo ./release/bin/query --dataset sift1m --nprobes 0 --opt_levels OPT_SUBNN_L2 --cache
-sudo ./release/bin/query --dataset sift1m --nprobes 1 3 5 0 --opt_levels OPT_NONE OPT_TRI_SUBNN_L2 --cache
+sudo ./release/bin/query --dataset msong --high_precision_subNN_index --cache
+# sudo ./debug/bin/query --dataset msong --nprobes 0 --cache

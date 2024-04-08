@@ -150,6 +150,9 @@ class IVFScan : public IVFScanBase {
             float dis = dis_calculator(query, candicate, d);
 
             if (dis_comparator(dis, simi[0])) {
+                IF_STATS {
+                    stats->simi_update_count++;
+                }
                 idx_t id = ids[i];
                 heap_replace_top<metric>(k, simi, idxi, dis, id);
 
@@ -165,6 +168,40 @@ class IVFScan : public IVFScanBase {
 
                 if constexpr (opt_level & OptLevel::OPT_SUBNN_L2) {
                     sqrt_simi = sqrt(simi[0]);
+                }
+            }
+
+            if (opt_level & OptLevel::OPT_SUBNN_L2) {
+                IF_STATS {
+                    stats->check_subnn_L2_count += 1;
+                }
+                size_t skip_fake_id_begin = i * sub_k;
+                size_t skip_fake_id_end = skip_fake_id_begin + sub_k;
+                skip_fake_id_begin += 1;
+                for (size_t skip_fake_id = skip_fake_id_begin; skip_fake_id < skip_fake_id_end; skip_fake_id++) {
+                    float tmp_plus = nearest_L2_dis[skip_fake_id] + sqrt_simi;
+                    size_t skip_true_id = nearest_L2_id[skip_fake_id];
+                    if (skip_true_id > 0 && dis > tmp_plus * tmp_plus) {  // already sqrt nearest_L2_dis
+#ifdef CORRECTNESS_CHECK
+                        float true_dis = dis_calculator(query, codes + skip_true_id * d, d);
+#pragma omp critical
+                        if (true_dis < simi[0]) {
+                            std::cerr << "Error: " << true_dis << " " << dis << " " << nearest_L2_id[skip_fake_id] << std::endl;
+                            throw std::runtime_error("SUBNN_L2_NEAREST_ERROR");
+                        }
+#endif
+                        IF_STATS {
+                            if (!if_skip[skip_true_id] && i < skip_true_id) {
+                                stats->skip_subnn_L2_count++;
+                            }
+                        }
+                        if_skip[skip_true_id] = true;
+                    } else {
+                        IF_STATS {
+                            stats->check_subnn_L2_ele_count += skip_fake_id - skip_fake_id_begin;
+                        }
+                        break;
+                    }
                 }
             }
 
@@ -257,41 +294,6 @@ class IVFScan : public IVFScanBase {
                                 break;
                             }
                         }
-                    }
-                }
-            }
-
-            if (opt_level & OptLevel::OPT_SUBNN_L2) {
-                IF_STATS {
-                    stats->check_subnn_L2_count += 2;
-                }
-                size_t skip_fake_id_begin = i * sub_k;
-                size_t skip_fake_id_end = skip_fake_id_begin + sub_k;
-                skip_fake_id_begin += 1;
-                for (size_t skip_fake_id = skip_fake_id_begin; skip_fake_id < skip_fake_id_end; skip_fake_id++) {
-                    float tmp_plus = nearest_L2_dis[skip_fake_id] + sqrt_simi;
-                    size_t skip_true_id = nearest_L2_id[skip_fake_id];
-                    if (skip_true_id > 0 && dis > tmp_plus * tmp_plus) {  // already sqrt nearest_L2_dis
-
-#ifdef CORRECTNESS_CHECK
-                        float true_dis = dis_calculator(query, codes + skip_true_id * d, d);
-#pragma omp critical
-                        if (true_dis < simi[0]) {
-                            std::cerr << "Error: " << true_dis << " " << dis << " " << nearest_L2_id[skip_fake_id] << std::endl;
-                            throw std::runtime_error("SUBNN_L2_NEAREST_ERROR");
-                        }
-#endif
-                        IF_STATS {
-                            if (!if_skip[skip_true_id] && i < skip_true_id) {
-                                stats->skip_subnn_L2_count++;
-                            }
-                        }
-                        if_skip[skip_true_id] = true;
-                    } else {
-                        IF_STATS {
-                            stats->check_subnn_L2_ele_count += skip_fake_id - skip_fake_id_begin;
-                        }
-                        break;
                     }
                 }
             }
