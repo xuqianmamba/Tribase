@@ -85,6 +85,13 @@ int main(int argc, char* argv[]) {
     std::tie(nb, d) = loadFvecsInfo(base_path);
     size_t nlist = static_cast<size_t>(std::sqrt(nb));
 
+    nprobes.clear();
+    for (size_t val = 1; val <= nlist / 2; val *= 2) {
+        nprobes.push_back(val);
+    }
+    nprobes.push_back(nlist);
+
+
     auto get_index_path = [&]() {
         int target = static_cast<int>(added_opt_levels);
         for (int i = 0; i < 8; i++) {
@@ -134,7 +141,7 @@ int main(int argc, char* argv[]) {
     faiss::IndexFlatL2 quantizer(d);
     faiss::IndexIVFFlat index_faiss(&quantizer, d, nlist);
 
-    if (!std::filesystem::exists(groundtruth_path) || true) {
+    if (!std::filesystem::exists(groundtruth_path)) {
         double faiss_groundtruth_time = 0.0;
         std::cout << std::format("Groundtruth file {} does not exist", groundtruth_path) << std::endl;
         if (base == nullptr) {
