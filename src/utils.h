@@ -13,6 +13,7 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <mkl.h>
 #include "common.h"
 
 namespace tribase {
@@ -165,11 +166,35 @@ class Stopwatch {
 //     return distance;
 // }
 
+
 inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size) {
-    Eigen::Map<const Eigen::VectorXf> v1(vec1, size);
-    Eigen::Map<const Eigen::VectorXf> v2(vec2, size);
-    return (v1 - v2).squaredNorm();
+    // 分配内存用于存储向量差
+    float* diff = (float*)mkl_malloc(size * sizeof(float), 64);
+    if (!diff) {
+        // 内存分配失败
+        return -1.0;
+    }
+
+    // 初始化diff为vec1的副本
+    cblas_scopy(size, vec1, 1, diff, 1);
+    // 计算 vec1 - vec2，并将结果存储在diff中
+    cblas_saxpy(size, -1.0, vec2, 1, diff, 1);
+
+    // 计算diff向量的L2范数的平方
+    float distance = cblas_snrm2(size, diff, 1);
+    distance = distance * distance;
+
+    // 释放内存
+    mkl_free(diff);
+
+    return distance;
 }
+
+// inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size) {
+//     Eigen::Map<const Eigen::VectorXf> v1(vec1, size);
+//     Eigen::Map<const Eigen::VectorXf> v2(vec2, size);
+//     return (v1 - v2).squaredNorm();
+// }
 
 // float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size);
 
