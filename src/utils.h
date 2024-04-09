@@ -368,18 +368,18 @@ inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, f
 //  TRIBASE_IMPRECISE_FUNCTION_END
 
 // V9
-TRIBASE_IMPRECISE_FUNCTION_BEGIN
-inline float calculatedEuclideanDistance(const float* x, const float* y, size_t d) {
-    size_t i;
-    float res = 0;
-    TRIBASE_IMPRECISE_LOOP
-    for (i = 0; i < d; i++) {
-        const float tmp = x[i] - y[i];
-        res += tmp * tmp;
-    }
-    return res;
-}
-TRIBASE_IMPRECISE_FUNCTION_END
+// TRIBASE_IMPRECISE_FUNCTION_BEGIN
+// inline float calculatedEuclideanDistance(const float* x, const float* y, size_t d) {
+//     size_t i;
+//     float res = 0;
+//     TRIBASE_IMPRECISE_LOOP
+//     for (i = 0; i < d; i++) {
+//         const float tmp = x[i] - y[i];
+//         res += tmp * tmp;
+//     }
+//     return res;
+// }
+// TRIBASE_IMPRECISE_FUNCTION_END
 
 // V10
 //  inline float calculatedEuclideanDistance(const float* x, const float* y, size_t d) {

@@ -41,5 +41,6 @@ elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
 endif()
 
 include_directories(${CMAKE_SOURCE_DIR}/third_party)
+include_directories(${CMAKE_SOURCE_DIR}/third_party/faiss)
 add_subdirectory(third_party/faiss)
 add_subdirectory(src)

@@ -1,4 +1,5 @@
 #include "Index.h"
+#include <faiss/IndexFlat.h>
 #include <faiss/IndexIVFFlat.h>
 #include <omp.h>
 #include <atomic>
@@ -53,8 +54,8 @@ void Index::train(size_t n, const float* codes, bool faiss) {
 
         this->centroid_codes.reset(clustering.get_centroids());
     } else {
-        faiss::IndexFlatL2 quantizer(d);  // the other index
-        faiss::IndexIVFFlat index(&quantizer, d, nlist);
+        ::faiss::IndexFlatL2 quantizer(d);  // the other index
+        ::faiss::IndexIVFFlat index(&quantizer, d, nlist);
         index.train(n, codes);
         this->centroid_codes = std::make_unique<float[]>(nlist * d);
         std::copy_n(quantizer.get_xb(), nlist * d, this->centroid_codes.get());
