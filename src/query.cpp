@@ -85,11 +85,11 @@ int main(int argc, char* argv[]) {
     std::tie(nb, d) = loadFvecsInfo(base_path);
     size_t nlist = static_cast<size_t>(std::sqrt(nb));
 
-    nprobes.clear();
-    for (size_t val = 1; val <= nlist / 2; val *= 2) {
-        nprobes.push_back(val);
-    }
-    nprobes.push_back(nlist);
+    // nprobes.clear();
+    // for (size_t val = 1; val <= nlist / 2; val *= 2) {
+    //     nprobes.push_back(val);
+    // }
+    // nprobes.push_back(nlist);
 
 
     auto get_index_path = [&]() {

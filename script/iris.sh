@@ -16,4 +16,5 @@ cd ..
 # sudo ./debug/bin/query --dataset sift1m --nprobes 0 --high_precision_subNN_index
 # sudo ./release/bin/query --dataset sift1m --nprobes 0 --opt_levels OPT_SUBNN_L2 --cache
 sudo ./release/bin/query --dataset msong --high_precision_subNN_index --cache
+
 # sudo ./debug/bin/query --dataset msong --nprobes 0 --cache
