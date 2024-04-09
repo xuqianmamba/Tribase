@@ -19,7 +19,7 @@
 #include "platform_macros.h"
 #include <algorithm>   // 包含std::fill_n
 #include "avx512.h"
-
+#include "faiss/faiss/utils/distances.h"
 #include <immintrin.h> // 包含AVX2和其他SIMD指令集的头文件
 
 namespace tribase {
@@ -363,18 +363,24 @@ class Stopwatch {
 
 
 //V9
-TRIBASE_IMPRECISE_FUNCTION_BEGIN
+// TRIBASE_IMPRECISE_FUNCTION_BEGIN
+// inline float calculatedEuclideanDistance(const float* x, const float* y, size_t d) {
+//     size_t i;
+//     float res = 0;
+//     TRIBASE_IMPRECISE_LOOP
+//     for (i = 0; i < d; i++) {
+//         const float tmp = x[i] - y[i];
+//         res += tmp * tmp;
+//     }
+//     return res;
+// }
+// TRIBASE_IMPRECISE_FUNCTION_END
+
+//V10
 inline float calculatedEuclideanDistance(const float* x, const float* y, size_t d) {
-    size_t i;
-    float res = 0;
-    TRIBASE_IMPRECISE_LOOP
-    for (i = 0; i < d; i++) {
-        const float tmp = x[i] - y[i];
-        res += tmp * tmp;
-    }
-    return res;
+    // 直接调用FAISS的fvec_L2sqr函数
+    return faiss::fvec_L2sqr(x, y, d);
 }
-TRIBASE_IMPRECISE_FUNCTION_END
 // float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size);
 
 // Calculates the inner product between two vectors
