@@ -16,6 +16,11 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 find_package(OpenMP REQUIRED)
 find_package(GTest REQUIRED)
+# find_package(MKL REQUIRED)
+
+set(MKL_ROOT "/opt/intel/oneapi/mkl/2024.0")
+include_directories(${MKL_ROOT}/include)
+link_directories(${MKL_ROOT}/lib/intel64)
 
 option(ENABLE_PROFILING "Enable profiling" OFF)
 

@@ -33,6 +33,7 @@ int main(int argc, char* argv[]) {
     program.add_argument("--high_precision_subNN_index").default_value(false).implicit_value(true).help("use high precision subNN index");
     program.add_argument("--metric").default_value("l2").help("metric type");
     program.add_argument("--run_faiss").default_value(false).implicit_value(true).help("run faiss");
+    program.add_argument("--loop").default_value(1ul).action([](const std::string& value) -> size_t { return std::stoul(value); });
 
     try {
         program.parse_args(argc, argv);
@@ -63,6 +64,7 @@ int main(int argc, char* argv[]) {
     std::string metric_str = program.get<std::string>("metric");
     bool run_faiss = program.get<bool>("run_faiss");
     MetricType metric;
+    size_t loop = program.get<size_t>("loop");
 
     if (str_lower_equal(metric_str, "l2")) {
         metric = MetricType::METRIC_L2;
@@ -134,7 +136,7 @@ int main(int argc, char* argv[]) {
     faiss::IndexFlatL2 quantizer(d);
     faiss::IndexIVFFlat index_faiss(&quantizer, d, nlist);
 
-    if (!std::filesystem::exists(groundtruth_path) || true) {
+    if (!std::filesystem::exists(groundtruth_path)) {
         double faiss_groundtruth_time = 0.0;
         std::cout << std::format("Groundtruth file {} does not exist", groundtruth_path) << std::endl;
         if (base == nullptr) {
@@ -199,10 +201,18 @@ int main(int argc, char* argv[]) {
             std::unique_ptr<float[]> distances = std::make_unique<float[]>(nq * k);
             std::unique_ptr<idx_t[]> labels = std::make_unique<idx_t[]>(nq * k);
             Stopwatch stopwatch;
-            Stats ststs = index.search(nq, query.get(), k, distances.get(), labels.get());
-            ststs.query_time = stopwatch.elapsedSeconds();
-            ststs.faiss_query_time = f_time;
-            ststs.print();
+            if (loop > 1) {
+                for (size_t j = 0; j < loop; j++) {
+                    index.search(nq, query.get(), k, distances.get(), labels.get());
+                }
+                double search_time = stopwatch.elapsedSeconds() / loop;
+                std::cout << std::format("Search time: {}", search_time) << std::endl;
+            } else {
+                Stats stats = index.search(nq, query.get(), k, distances.get(), labels.get());
+                stats.query_time = stopwatch.elapsedSeconds();
+                stats.faiss_query_time = f_time;
+                stats.print();
+            }
             writeResultsToFile(labels.get(), distances.get(), nq, k, output_path);
             float recall = calculate_recall(labels.get(), distances.get(), ground_truth_I.get(), ground_truth_D.get(), nq, k, metric);
             std::cout << std::format("Recall: {}", recall) << std::endl;

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <mkl.h>
+// #include <mkl_cblas.h>
 #include <Eigen/Dense>
 #include <cassert>
 #include <chrono>
@@ -13,10 +15,7 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
-#include <mkl.h>
 #include "common.h"
-#include <mkl_cblas.h>
-
 
 namespace tribase {
 
@@ -159,15 +158,13 @@ class Stopwatch {
     std::chrono::time_point<std::chrono::high_resolution_clock> start;
 };
 
-
-
-//V0
-// inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size) {
-//     // 计算 vec1 和 vec2 的 L2 范数的平方
-//     float norm1 = cblas_snrm2(size, vec1, 1);
-//     float norm2 = cblas_snrm2(size, vec2, 1);
-//     float norm1Sq = norm1 * norm1;
-//     float norm2Sq = norm2 * norm2;
+// V0
+//  inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size) {
+//      // 计算 vec1 和 vec2 的 L2 范数的平方
+//      float norm1 = cblas_snrm2(size, vec1, 1);
+//      float norm2 = cblas_snrm2(size, vec2, 1);
+//      float norm1Sq = norm1 * norm1;
+//      float norm2Sq = norm2 * norm2;
 
 //     // 计算 vec1 和 vec2 的点积
 //     float dotProduct = cblas_sdot(size, vec1, 1, vec2, 1);
@@ -178,65 +175,56 @@ class Stopwatch {
 //     return distanceSq;
 // }
 
-//V1
+// V1
 // inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size) {
-//     // 创建一个临时向量存储差值
-//     std::unique_ptr<float[]> diff(new float[size]);
-
-//     // 计算 vec1 - vec2 的结果并存储在 diff 中
-//     // cblas_scopy 复制 vec1 到 diff
-//     cblas_scopy(size, vec1, 1, diff.get(), 1);
-//     // cblas_saxpy 计算 a*x + y 并存储结果在 y 中，这里我们使用它来计算 -vec2 + diff (即 diff - vec2)
-//     cblas_saxpy(size, -1.0, vec2, 1, diff.get(), 1);
-
-//     // 计算 diff 的点积，即欧氏距离的平方
-//     float distanceSq = cblas_sdot(size, diff.get(), 1, diff.get(), 1);
+//     float diff[size];
+//     cblas_scopy(size, vec1, 1, diff, 1);
+//     cblas_saxpy(size, -1.0, vec2, 1, diff, 1);
+//     float distanceSq = cblas_sdot(size, diff, 1, diff, 1);
 
 //     return distanceSq;
 // }
 
-//V2
-// inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size) {
-//     // 计算 vec1 和 vec2 的点积
-//     float dotProduct12 = cblas_sdot(size, vec1, 1, vec2, 1);
-//     // 计算 vec1 的点积，即其 L2 范数的平方
-//     float dotProduct11 = cblas_sdot(size, vec1, 1, vec1, 1);
-//     // 计算 vec2 的点积，即其 L2 范数的平方
-//     float dotProduct22 = cblas_sdot(size, vec2, 1, vec2, 1);
+// V2
+inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size) {
+    float dotProduct12 = cblas_sdot(size, vec1, 1, vec2, 1);
+    float dotProduct11 = cblas_sdot(size, vec1, 1, vec1, 1);
+    float dotProduct22 = cblas_sdot(size, vec2, 1, vec2, 1);
+    return dotProduct11 + dotProduct22 - 2 * dotProduct12;
+}
 
-//     // 根据公式计算欧氏距离的平方：||vec1 - vec2||^2 = ||vec1||^2 + ||vec2||^2 - 2 * (vec1 . vec2)
-//     float distanceSq = dotProduct11 + dotProduct22 - 2 * dotProduct12;
+inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, float norm1, size_t size) {
+    float dotProduct22 = cblas_sdot(size, vec2, 1, vec2, 1);
+    return norm1 + dotProduct22 - 2 * cblas_sdot(size, vec1, 1, vec2, 1);
+}
 
-//     return distanceSq;
-// }
+inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, float norm1, float norm2, size_t size) {
+    return norm1 + norm2 - 2 * cblas_sdot(size, vec1, 1, vec2, 1);
+}
 
-//V3
+// V3
+//
 // inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size) {
 //     Eigen::Map<const Eigen::VectorXf> v1(vec1, size);
 //     Eigen::Map<const Eigen::VectorXf> v2(vec2, size);
 //     return (v1 - v2).squaredNorm();
 // }
 
-//V4
-inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size) {
-    float distance = 0.0;
-    for (size_t i = 0; i < size; ++i) {
-        float diff = vec1[i] - vec2[i];
-        distance += diff * diff;
-    }
-    return distance;
-}
+// V4
+// inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size) {
+//     float distance = 0.0;
+//     for (size_t i = 0; i < size; ++i) {
+//         float diff = vec1[i] - vec2[i];
+//         distance += diff * diff;
+//     }
+//     return distance;
+// }
 
 // float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size);
 
 // Calculates the inner product between two vectors
 inline float calculatedInnerProduct(const float* vec1, const float* vec2, size_t size) {
-    float distance = 0.0;
-    // Calculate the squared difference for each dimension
-    for (size_t i = 0; i < size; ++i) {
-        distance += vec1[i] * vec2[i];
-    }
-    return distance;
+    return cblas_sdot(size, vec1, 1, vec2, 1);
 }
 
 // Calculates the magnitude (length) of a vector
@@ -337,25 +325,28 @@ inline float relative_error(float x, float y) {
     }
 }
 
+#define FEPS 1e-4
+
 inline float calculate_recall(const idx_t* I, const float* D, const idx_t* GT, const float* GD, size_t nq, size_t k, MetricType metric, size_t gt_k = 0) {
     if (gt_k == 0) {
         gt_k = k;
     }
+    size_t true_correct = 0;
     size_t correct = 0;
     if (k > gt_k) {
         throw std::invalid_argument("k should be less than or equal to gt_k.");
     }
-    // for (size_t i = 0; i < nq; ++i) {
-    //     std::unordered_set<idx_t> groundtruth(GT + i * gt_k, GT + i * gt_k + k);
-    //     for (size_t j = 0; j < k; ++j) {
-    //         if (I[i * k + j] == -1) {
-    //             break;
-    //         }
-    //         if (groundtruth.find(I[i * k + j]) != groundtruth.end()) {
-    //             correct++;
-    //         }
-    //     }
-    // }
+    for (size_t i = 0; i < nq; ++i) {
+        std::unordered_set<idx_t> groundtruth(GT + i * gt_k, GT + i * gt_k + k);
+        for (size_t j = 0; j < k; ++j) {
+            if (I[i * k + j] == -1) {
+                break;
+            }
+            if (groundtruth.find(I[i * k + j]) != groundtruth.end()) {
+                true_correct++;
+            }
+        }
+    }
     if (metric == MetricType::METRIC_L2) {
         for (size_t i = 0; i < nq; ++i) {
             float topK = std::numeric_limits<float>::max();
@@ -368,7 +359,7 @@ inline float calculate_recall(const idx_t* I, const float* D, const idx_t* GT, c
                 if (I[i * k + j] == -1) {
                     break;
                 }
-                if (D[i * k + j] <= topK || relative_error(D[i * k + j], topK) < 1e-5) {
+                if (D[i * k + j] <= topK || relative_error(D[i * k + j], topK) < FEPS) {
                     correct++;
                 } else {
                     std::cerr << std::format("D[{}, {}]= {} > topK= {}", i, j, D[i * k + j], topK) << std::endl;
@@ -388,7 +379,7 @@ inline float calculate_recall(const idx_t* I, const float* D, const idx_t* GT, c
                 if (I[i * k + j] == -1) {
                     break;
                 }
-                if (D[i * k + j] >= topK || relative_error(D[i * k + j], topK) < 1e-5) {
+                if (D[i * k + j] >= topK || relative_error(D[i * k + j], topK) < FEPS) {
                     correct++;
                 } else {
                     std::cerr << std::format("D[{}, {}]= {} < topK= {}", i, j, D[i * k + j], topK) << std::endl;
@@ -397,6 +388,7 @@ inline float calculate_recall(const idx_t* I, const float* D, const idx_t* GT, c
             }
         }
     }
+    assert(1.0 * true_correct / correct > 0.99);
     return static_cast<float>(correct) / (nq * k);
 }
 

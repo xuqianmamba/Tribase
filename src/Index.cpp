@@ -190,6 +190,7 @@ void Index::add(size_t n, const float* codes) {
 #endif
                 }
                 std::copy_n(codes + i * d, d, lists[list_id].candidate_codes.get() + list_size * d);
+                lists[list_id].candidate_norms[list_size] = calculatedInnerProduct(codes + i * d, codes + i * d, d);
                 list_sizes[list_id]++;
 
                 // if (metric == MetricType::METRIC_L2) {
@@ -455,7 +456,7 @@ void Index::single_thread_search(size_t n, const float* queries, size_t k, float
                 stats->total_count += list_size;
             }
 
-            scaner->scan_codes(scan_begin, scan_end, list_size, list.get_candidate_codes(), list.get_candidate_id(), centroid2query, list.get_candidate2centroid(),
+            scaner->scan_codes(scan_begin, scan_end, list_size, list.get_candidate_codes(), list.get_candidate_id(), list.get_candidate_norms(), centroid2query, list.get_candidate2centroid(),
                                list.get_sqrt_candidate2centroid(), sub_k, list.get_sub_nearest_IP_id(),
                                list.get_sub_nearest_IP_dis(), list.get_sub_farest_IP_id(), list.get_sub_farest_IP_dis(),
                                list.get_sub_nearest_L2_id(), list.get_sub_nearest_L2_dis(), if_skip.get(), simi, idxi,

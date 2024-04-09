@@ -14,6 +14,7 @@ IVF::IVF(IVF&& other) noexcept {
     opt_level = other.opt_level;
     candidate_id = std::move(other.candidate_id);
     candidate_codes = std::move(other.candidate_codes);
+    candidate_norms = std::move(other.candidate_norms);
     candidate2centroid = std::move(other.candidate2centroid);
     sqrt_candidate2centroid = std::move(other.sqrt_candidate2centroid);
     sub_nearest_L2_id = std::move(other.sub_nearest_L2_id);
@@ -31,6 +32,7 @@ IVF& IVF::operator=(IVF&& other) noexcept {
         opt_level = other.opt_level;
         candidate_id = std::move(other.candidate_id);
         candidate_codes = std::move(other.candidate_codes);
+        candidate_norms = std::move(other.candidate_norms);
         candidate2centroid = std::move(other.candidate2centroid);
         sqrt_candidate2centroid = std::move(other.sqrt_candidate2centroid);
         sub_nearest_L2_id = std::move(other.sub_nearest_L2_id);
@@ -50,6 +52,7 @@ void IVF::reset(size_t listSize, size_t d, size_t subK, OptLevel optLevel) {
     this->opt_level = optLevel;
     candidate_id = std::make_unique<size_t[]>(listSize);
     candidate_codes = std::make_unique<float[]>(listSize * d);
+    candidate_norms = std::make_unique<float[]>(listSize);  // L2
 
     if ((optLevel & OptLevel::OPT_TRIANGLE) || (optLevel & OptLevel::OPT_SUBNN_IP)) {
         candidate2centroid = std::make_unique<float[]>(listSize);
@@ -74,6 +77,7 @@ void IVF::save_IVF(std::ostream& os) const {
     os.write(reinterpret_cast<const char*>(&opt_level), sizeof(OptLevel));
     os.write(reinterpret_cast<const char*>(candidate_id.get()), list_size * sizeof(size_t));
     os.write(reinterpret_cast<const char*>(candidate_codes.get()), list_size * d * sizeof(float));
+    os.write(reinterpret_cast<const char*>(candidate_norms.get()), list_size * sizeof(float));
 
     if ((opt_level & OptLevel::OPT_TRIANGLE) || (opt_level & OptLevel::OPT_SUBNN_IP)) {
         os.write(reinterpret_cast<const char*>(candidate2centroid.get()), list_size * sizeof(float));
@@ -98,8 +102,10 @@ void IVF::load_IVF(std::istream& is) {
     is.read(reinterpret_cast<char*>(&opt_level), sizeof(OptLevel));
     candidate_id = std::make_unique<size_t[]>(list_size);
     candidate_codes = std::make_unique<float[]>(list_size * d);
+    candidate_norms = std::make_unique<float[]>(list_size);
     is.read(reinterpret_cast<char*>(candidate_id.get()), list_size * sizeof(size_t));
     is.read(reinterpret_cast<char*>(candidate_codes.get()), list_size * d * sizeof(float));
+    is.read(reinterpret_cast<char*>(candidate_norms.get()), list_size * sizeof(float));
     if ((opt_level & OptLevel::OPT_TRIANGLE) || (opt_level & OptLevel::OPT_SUBNN_IP)) {
         candidate2centroid = std::make_unique<float[]>(list_size);
         sqrt_candidate2centroid = std::make_unique<float[]>(list_size);

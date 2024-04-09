@@ -11,12 +11,14 @@ class IVFScanBase {
     size_t d;
     size_t k;
     const float* query;
+    float query_norm;
 
     IVFScanBase(size_t d, size_t k)
         : d(d), k(k) {}
 
     void set_query(const float* query) {
         this->query = query;
+        this->query_norm = calculatedInnerProduct(query, query, d);
     }
 
     virtual void lite_scan_codes(size_t list_size,
@@ -30,6 +32,7 @@ class IVFScanBase {
                             size_t list_size,
                             const float* codes,
                             const size_t* ids,
+                            const float* codes_norms,
                             const float centroid2query,
                             const float* candicate2centroid,
                             const float* sqrt_candicate2centroid,
@@ -82,6 +85,7 @@ class IVFScan : public IVFScanBase {
                     [[maybe_unused]] size_t list_size,
                     const float* codes,
                     const size_t* ids,
+                    [[maybe_unused]] const float* codes_norms,
                     const float centroid2query,
                     const float* candicate2centroid,
                     const float* sqrt_candicate2centroid,
@@ -147,7 +151,15 @@ class IVFScan : public IVFScanBase {
                 continue;
             }
             const float* candicate = codes + i * d;
-            float dis = dis_calculator(query, candicate, d);
+            const float candicate_norm = codes_norms[i];
+            float dis;
+            if constexpr (metric == MetricType::METRIC_L2) {
+                // dis = dis_calculator(query, candicate, d);
+                dis = calculatedEuclideanDistance(query, candicate, query_norm, d);
+                // dis = calculatedEuclideanDistance(query, candicate, query_norm, candicate_norm, d);
+            } else {
+                dis = dis_calculator(query, candicate, d);
+            }
 
             if (dis_comparator(dis, simi[0])) {
                 IF_STATS {

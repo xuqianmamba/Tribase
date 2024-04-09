@@ -14,6 +14,7 @@ class IVF {
     OptLevel opt_level;
     std::unique_ptr<size_t[]> candidate_id;
     std::unique_ptr<float[]> candidate_codes;
+    std::unique_ptr<float[]> candidate_norms;
     std::unique_ptr<float[]> candidate2centroid;
     std::unique_ptr<float[]> sqrt_candidate2centroid;
     std::unique_ptr<idx_t[]> sub_nearest_L2_id;
@@ -51,6 +52,7 @@ class IVF {
     const float* get_candidate_codes(size_t i) const { return candidate_codes.get() + i * d; }
     const size_t* get_candidate_id() const { return candidate_id.get(); }
     const size_t get_candidate_id(size_t i) const { return candidate_id[i]; }
+    const float* get_candidate_norms() const { return candidate_norms.get(); }
     const float* get_candidate2centroid() const { return candidate2centroid.get(); }
     const float get_candidate2centroid(size_t i) const { return candidate2centroid[i]; }
     const float* get_sqrt_candidate2centroid() const { return sqrt_candidate2centroid.get(); }

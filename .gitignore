@@ -6,3 +6,7 @@ debug
 result
 nuswide
 *.npy
+gmon.out
+benchmarks/sift1m
+benchmarks/msong
+analysis.txt
