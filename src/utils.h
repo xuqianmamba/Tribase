@@ -17,7 +17,7 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
-#include "avx512.h"
+// #include "avx512.h"
 #include "common.h"
 #include "faiss/faiss/utils/distances.h"
 #include "platform_macros.h"

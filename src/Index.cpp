@@ -1,4 +1,5 @@
 #include "Index.h"
+#include <faiss/IndexIVFFlat.h>
 #include <omp.h>
 #include <atomic>
 #include <cmath>
@@ -38,18 +39,26 @@ Index& Index::operator=(Index&& other) noexcept {
     return *this;
 }
 
-void Index::train(size_t n, const float* codes) {
+void Index::train(size_t n, const float* codes, bool faiss) {
     // 这里假设Clustering类已经定义好，并且有一个合适的构造函数和train方法
-    ClusteringParameters cp;
-    cp.metric = this->metric;
-    cp.niter = 25;                     // 或其他合适的值
-    cp.seed = 6666;                    // 或其他合适的值
-    cp.max_points_per_centroid = 256;  // 或其他合适的值
+    if (!faiss) {
+        ClusteringParameters cp;
+        cp.metric = this->metric;
+        cp.niter = 25;                     // 或其他合适的值
+        cp.seed = 6666;                    // 或其他合适的值
+        cp.max_points_per_centroid = 256;  // 或其他合适的值
 
-    Clustering clustering(this->d, this->nlist, verbose, cp);
-    clustering.train(n, codes);
+        Clustering clustering(this->d, this->nlist, verbose, cp);
+        clustering.train(n, codes);
 
-    this->centroid_codes.reset(clustering.get_centroids());
+        this->centroid_codes.reset(clustering.get_centroids());
+    } else {
+        faiss::IndexFlatL2 quantizer(d);  // the other index
+        faiss::IndexIVFFlat index(&quantizer, d, nlist);
+        index.train(n, codes);
+        this->centroid_codes = std::make_unique<float[]>(nlist * d);
+        std::copy_n(quantizer.get_xb(), nlist * d, this->centroid_codes.get());
+    }
 }
 
 std::unique_ptr<IVFScanBase> Index::get_scanner(MetricType metric, OptLevel opt_level, size_t k) {

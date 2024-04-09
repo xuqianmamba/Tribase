@@ -23,7 +23,7 @@ class Index {
 
     Index& operator=(Index&& other) noexcept;
 
-    void train(size_t n, const float* codes);
+    void train(size_t n, const float* codes, bool faiss=false);
 
     void single_thread_nearest_cluster_search(size_t n, const float* queries, float* distances, idx_t* labels);
     void single_thread_search(size_t n, const float* queries, size_t k, float* distances, idx_t* labels, Stats* stats);
