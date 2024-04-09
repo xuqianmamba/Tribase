@@ -16,7 +16,11 @@
 #include <mkl.h>
 #include "common.h"
 #include <mkl_cblas.h>
+#include "platform_macros.h"
+#include <algorithm>   // 包含std::fill_n
+#include "avx512.h"
 
+#include <immintrin.h> // 包含AVX2和其他SIMD指令集的头文件
 
 namespace tribase {
 
@@ -210,7 +214,7 @@ class Stopwatch {
 //     return distanceSq;
 // }
 
-//V3
+// V3
 // inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size) {
 //     Eigen::Map<const Eigen::VectorXf> v1(vec1, size);
 //     Eigen::Map<const Eigen::VectorXf> v2(vec2, size);
@@ -218,15 +222,159 @@ class Stopwatch {
 // }
 
 //V4
-inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size) {
-    float distance = 0.0;
-    for (size_t i = 0; i < size; ++i) {
-        float diff = vec1[i] - vec2[i];
-        distance += diff * diff;
-    }
-    return distance;
-}
+// inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size) {
+//     float distance = 0.0;
+//     for (size_t i = 0; i < size; ++i) {
+//         float diff = vec1[i] - vec2[i];
+//         distance += diff * diff;
+//     }
+//     return distance;
+// }
 
+//V5
+
+// inline float calculatedEuclideanDistance(const float* x, const float* y, size_t d) {
+//     size_t newSize = (d + 15) / 16 * 16; // 计算新大小为16的倍数
+//     float* newX = new float[newSize];
+//     float* newY = new float[newSize];
+//     std::copy(x, x + d, newX); // 复制原数组
+//     std::copy(y, y + d, newY); // 复制原数组
+//     std::fill_n(newX + d, newSize - d, 0.0f); // 用0填充剩余的部分
+//     std::fill_n(newY + d, newSize - d, 0.0f); // 用0填充剩余的部分
+
+//     __m512 sum = _mm512_setzero_ps(); // 初始化累加器为0
+//     for (size_t i = 0; i < newSize; i += 16) {
+//         __m512 mx = _mm512_loadu_ps(newX + i); // 加载x的一部分
+//         __m512 my = _mm512_loadu_ps(newY + i); // 加载y的一部分
+//         __m512 diff = _mm512_sub_ps(mx, my); // 计算差异
+//         __m512 sqr = _mm512_mul_ps(diff, diff); // 计算平方
+//         sum = _mm512_add_ps(sum, sqr); // 累加平方
+//     }
+
+//     // 将累加器中的值合并
+//     __m256 low256 = _mm512_castps512_ps256(sum);
+//     __m256 high256 = _mm512_extractf32x8_ps(sum, 1);
+//     __m256 sum256 = _mm256_add_ps(low256, high256);
+//     __m128 low128 = _mm256_castps256_ps128(sum256);
+//     __m128 high128 = _mm256_extractf128_ps(sum256, 1);
+//     __m128 sum128 = _mm_add_ps(low128, high128);
+//     sum128 = _mm_hadd_ps(sum128, sum128);
+//     sum128 = _mm_hadd_ps(sum128, sum128);
+//     float finalSum = _mm_cvtss_f32(sum128); // 将累加器中的值转换为float
+
+//     delete[] newX; // 释放临时数组
+//     delete[] newY; // 释放临时数组
+
+//     return finalSum; // 返回最终的L2距离的平方
+// }
+
+//V6
+
+// inline float calculatedEuclideanDistance(const float* x, const float* y, size_t d) {
+//     size_t newSize = (d + 7) / 8 * 8; // 计算新大小为8的倍数
+//     float* newX = new float[newSize];
+//     float* newY = new float[newSize];
+//     std::copy(x, x + d, newX); // 复制原数组
+//     std::copy(y, y + d, newY); // 复制原数组
+//     std::fill_n(newX + d, newSize - d, 0.0f); // 用0填充剩余的部分
+//     std::fill_n(newY + d, newSize - d, 0.0f); // 用0填充剩余的部分
+
+//     __m256 sum = _mm256_setzero_ps(); // 初始化累加器为0
+//     for (size_t i = 0; i < newSize; i += 8) {
+//         __m256 mx = _mm256_loadu_ps(newX + i); // 加载x的一部分
+//         __m256 my = _mm256_loadu_ps(newY + i); // 加载y的一部分
+//         __m256 diff = _mm256_sub_ps(mx, my); // 计算差异
+//         __m256 sqr = _mm256_mul_ps(diff, diff); // 计算平方
+//         sum = _mm256_add_ps(sum, sqr); // 累加平方
+//     }
+
+//     // 将累加器中的值合并
+//     __m128 low128 = _mm256_castps256_ps128(sum);
+//     __m128 high128 = _mm256_extractf128_ps(sum, 1);
+//     __m128 sum128 = _mm_add_ps(low128, high128);
+//     sum128 = _mm_hadd_ps(sum128, sum128);
+//     sum128 = _mm_hadd_ps(sum128, sum128);
+//     float finalSum = _mm_cvtss_f32(sum128); // 将累加器中的值转换为float
+
+//     delete[] newX; // 释放临时数组
+//     delete[] newY; // 释放临时数组
+
+//     return finalSum; // 返回最终的L2距离的平方
+// }
+
+//V7
+
+// inline float calculatedEuclideanDistance(const float* x, const float* y, size_t d) {
+//     __m256 sum = _mm256_setzero_ps(); // 初始化累加器为0
+//     size_t i;
+//     for (i = 0; i <= d - 8; i += 8) {
+//         __m256 mx = _mm256_loadu_ps(x + i); // 加载x的一部分
+//         __m256 my = _mm256_loadu_ps(y + i); // 加载y的一部分
+//         __m256 diff = _mm256_sub_ps(mx, my); // 计算差异
+//         __m256 sqr = _mm256_mul_ps(diff, diff); // 计算平方
+//         sum = _mm256_add_ps(sum, sqr); // 累加平方
+//     }
+
+//     // 处理剩余的元素
+//     float residual = 0.0;
+//     for (; i < d; ++i) {
+//         float diff = x[i] - y[i];
+//         residual += diff * diff;
+//     }
+
+//     // 将累加器中的值合并
+//     __m128 low128 = _mm256_castps256_ps128(sum);
+//     __m128 high128 = _mm256_extractf128_ps(sum, 1);
+//     __m128 sum128 = _mm_add_ps(low128, high128);
+//     sum128 = _mm_hadd_ps(sum128, sum128);
+//     sum128 = _mm_hadd_ps(sum128, sum128);
+//     float finalSum = _mm_cvtss_f32(sum128) + residual; // 将累加器中的值与处理剩余元素的结果相加
+
+//     return finalSum; // 返回最终的L2距离的平方
+// }
+
+
+//V8
+// inline float calculatedEuclideanDistance(const float* x, const float* y, size_t d) {
+//     __m256 sum = _mm256_setzero_ps(); // 初始化累加器为0
+//     size_t i;
+//     for (i = 0; i <= d - 8; i += 8) {
+//         __m256 mx = _mm256_loadu_ps(x + i); // 假设x是对齐的
+//         __m256 my = _mm256_loadu_ps(y + i); // 假设y是对齐的
+//         __m256 diff = _mm256_sub_ps(mx, my);
+//         // 使用FMA指令集合并乘法和累加
+//         sum = _mm256_fmadd_ps(diff, diff, sum);
+//     }
+
+//     float residual = 0.0;
+//     for (; i < d; ++i) {
+//         float diff = x[i] - y[i];
+//         residual += diff * diff;
+//     }
+
+//     // 减少水平加法的使用
+//     float finalSum = residual;
+//     for (int j = 0; j < 8; ++j) {
+//         finalSum += ((float*)&sum)[j];
+//     }
+
+//     return finalSum; // 返回最终的L2距离的平方
+// }
+
+
+//V9
+TRIBASE_IMPRECISE_FUNCTION_BEGIN
+inline float calculatedEuclideanDistance(const float* x, const float* y, size_t d) {
+    size_t i;
+    float res = 0;
+    TRIBASE_IMPRECISE_LOOP
+    for (i = 0; i < d; i++) {
+        const float tmp = x[i] - y[i];
+        res += tmp * tmp;
+    }
+    return res;
+}
+TRIBASE_IMPRECISE_FUNCTION_END
 // float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size);
 
 // Calculates the inner product between two vectors
