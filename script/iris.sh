@@ -27,4 +27,3 @@ wait
 # sudo ./debug/bin/query --dataset msong --nprobes 0 --cache
 
 # sudo cp -r /home/xuqian/Triangle/benchmarks/msong ./benchmarks
-# sudo chown -R panjunda:panjunda ./benchmarks
