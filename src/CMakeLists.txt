@@ -20,4 +20,4 @@ target_link_libraries(main Tribase faiss)
 add_executable(query query.cpp)
 target_link_libraries(query Tribase faiss)
 
-# add_subdirectory(tests)
+add_subdirectory(tests)

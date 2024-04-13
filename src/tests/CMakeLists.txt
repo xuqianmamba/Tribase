@@ -12,3 +12,6 @@ target_link_libraries(cluster_test ${GTEST_LIBRARIES} ${GTEST_MAIN_LIBRARIES} pt
 
 add_executable(faiss_test faiss_test.cpp)
 target_link_libraries(faiss_test ${GTEST_LIBRARIES} ${GTEST_MAIN_LIBRARIES} pthread faiss)
+
+add_executable(index_test index_test.cpp)
+target_link_libraries(index_test ${GTEST_LIBRARIES} ${GTEST_MAIN_LIBRARIES} pthread Tribase faiss)

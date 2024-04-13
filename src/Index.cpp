@@ -4,6 +4,7 @@
 #include <omp.h>
 #include <atomic>
 #include <cmath>
+#include <filesystem>
 #include <memory>
 #include "IVF.h"
 #include "IVFScan.hpp"
@@ -397,7 +398,7 @@ void Index::add(size_t n, const float* codes) {
     }
 }
 
-void Index::single_thread_search(size_t n, const float* queries, size_t k, float* distances, idx_t* labels, Stats* stats) {
+void Index::single_thread_search(size_t n, const float* queries, size_t k, float* distances, idx_t* labels, float ratio, Stats* stats) {
     std::unique_ptr<IVFScanBase> scaner_quantizer = get_scanner(metric, OPT_NONE, nprobe);
     std::unique_ptr<IVFScanBase> scaner = get_scanner(metric, opt_level, k);
 
@@ -436,7 +437,7 @@ void Index::single_thread_search(size_t n, const float* queries, size_t k, float
             if (opt_level & OptLevel::OPT_TRIANGLE) {
                 const float* sqrt_candidate2centroid = list.get_sqrt_candidate2centroid();
                 const float* candidate2centroid = list.get_candidate2centroid();
-                float sqrt_simi = sqrt(simi[0]);
+                float sqrt_simi = ratio * sqrt(simi[0]);  // TODO:
                 float sqrt_centroid2query = sqrt(centroid2query);
                 for (size_t ii = 0; ii < list_size; ii++) {
                     float tmp = sqrt_simi + sqrt_candidate2centroid[ii];
@@ -481,7 +482,7 @@ void Index::single_thread_search(size_t n, const float* queries, size_t k, float
     }
 }
 
-Stats Index::search(size_t n, const float* queries, size_t k, float* distances, idx_t* labels) {
+Stats Index::search(size_t n, const float* queries, size_t k, float* distances, idx_t* labels, float ratio) {
     if (n == 0) {
         return Stats();
     }
@@ -508,7 +509,7 @@ Stats Index::search(size_t n, const float* queries, size_t k, float* distances, 
             end = start + batch_size;
         }
         if (start < end) {
-            single_thread_search(end - start, queries + start * d, k, distances + start * k, labels + start * k, &stats[i]);
+            single_thread_search(end - start, queries + start * d, k, distances + start * k, labels + start * k, ratio, &stats[i]);
         }
     }
 
@@ -576,6 +577,35 @@ void Index::load_index(std::string path) {
             std::cout << std::format("loaded list {}/{}, size {}", listid, nlist, lists[listid].get_list_size()) << std::endl;
         }
     }
+}
+
+void Index::load_SPANN(std::string path) {
+    // std::filesystem::path p(path);
+    // std::ifstream in(p / "selected.bin", std::ios::binary);
+    // if (!in.is_open()) {
+    //     throw std::runtime_error("Cannot open file " + (p / "selected.bin").string());
+    // }
+    // nlist = in.tellg() / sizeof(int32_t);
+    // centroid_ids = std::make_unique<idx_t[]>(nlist);
+    // in.seekg(0);
+    // if (!in.read(reinterpret_cast<char*>(centroid_ids.get()), nlist * sizeof(int32_t))) {
+    //     throw std::runtime_error("Cannot read file " + (p / "selected.bin").string());
+    // }
+    // in.close();
+
+    // std::ifstream in2(p / "selection.bin", std::ios::binary);
+    // size_t listno = 0;
+    // while (true) {
+    //     int32_t node, tonode;
+    //     in2.read(reinterpret_cast<char*>(&node), sizeof(int32_t));
+    //     in2.read(reinterpret_cast<char*>(&tonode), sizeof(int32_t));
+    //     if (tonode == listno) {
+    //         // lists[listno].load_SPANN(p, node);
+    //     }
+    //     if (in2.eof()) {
+    //         break;
+    //     }
+    // }
 }
 
 }  // namespace tribase

@@ -1,4 +1,5 @@
 #pragma once
+#include <filesystem>
 #include <format>
 #include <fstream>
 #include <iomanip>
@@ -28,10 +29,16 @@ class Stats {
     size_t simi_update_count;
     size_t dis_calculate_count;
 
+    size_t nprobe;
+
     double faiss_query_time;
     double query_time;
 
     OptLevel opt_level;
+
+    double recall;
+    double r2;
+    float simi_ratio;
 
     // summary
    private:
@@ -79,31 +86,35 @@ class Stats {
 
     void print() {
         summary();
-        std::cout << std::format("opt_level: {}\n", static_cast<int>(opt_level))
+        std::cout << std::format("nprobe:{} opt_level: {} simi_ratio: {}\n", nprobe, static_cast<int>(opt_level), simi_ratio)
                   << std::format("tri: {}({:.2f}%) tri_large: {}({:.2f}%) subnn_L2: {}({:.2f}%) subnn_IP: {}({:.2f}%)\n", skip_triangle_count, pruning_triangle, skip_triangle_large_count, pruning_triangle_large, skip_subnn_L2_count, pruning_subnn_L2, skip_subnn_IP_count, pruning_subnn_IP)
                   << std::format("simi_update_rate: {:.2f}% check_L2: {} check_IP: {}\n", simi_update_rate, check_subnn_L2, check_subnn_IP)
-                  << std::format("time_speedup: {:.2f}% pruning_speedup: {:.2f}% query_time: {:.2f}\n", time_speedup, pruning_speedup, query_time);
+                  << std::format("time_speedup: {:.2f}% pruning_speedup: {:.2f}% query_time: {:.2f}\n", time_speedup, pruning_speedup, query_time)
+                  << std::format("recall: {} r2: {}\n", recall, r2);
     }
 
     void toCsv(std::string_view filename, bool append) {
-        throw std::runtime_error("Not implemented");
         std::ofstream ofs;
-        if (append)
+        if (!std::filesystem::exists(filename)) {
+            append = false;
+        }
+        if (append) {
             ofs.open(filename.data(), std::ios::app);
-        else
+        } else {
             ofs.open(filename.data());
+        }
         if (!ofs.is_open()) {
             std::cerr << "Failed to open file: " << filename << std::endl;
             return;
         }
         if (!append) {
-            ofs << "total,skip_triangle,skip_triangle_large,skip_subnn_L2,skip_subnn_IP,check_subnn_L2,check_subnn_"
-                   "IP\n";
+            ofs << "nprobe,opt_level,simi_ratio,tri,tri_large,subnn_L2,subnn_IP,simi_update_rate,check_L2,check_IP,time_speedup,pruning_speedup,query_time,recall,r2\n";
         }
         summary();
-        ofs << total_count << "," << skip_triangle_count << "," << skip_triangle_large_count << ","
-            << skip_subnn_L2_count << "," << skip_subnn_IP_count << "," << std::fixed << std::setprecision(3)
-            << check_subnn_L2 << "," << check_subnn_IP << "\n";
+        ofs << std::format("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
+                           nprobe, static_cast<int>(opt_level), simi_ratio, skip_triangle_count, skip_triangle_large_count,
+                           skip_subnn_L2_count, skip_subnn_IP_count, simi_update_rate, check_subnn_L2,
+                           check_subnn_IP, time_speedup, pruning_speedup, query_time, recall, r2);
     }
 };
 

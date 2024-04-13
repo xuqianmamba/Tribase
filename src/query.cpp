@@ -38,6 +38,8 @@ int main(int argc, char* argv[]) {
     program.add_argument("--loop").default_value(1ul).action([](const std::string& value) -> size_t { return std::stoul(value); });
     program.add_argument("--nlist").default_value(0ul).action([](const std::string& value) -> size_t { return std::stoul(value); });
     program.add_argument("--verbose").default_value(false).implicit_value(true).help("verbose");
+    program.add_argument("--ratios").default_value(std::vector<float>({1.0f})).nargs(0, 100).help("ratio of the number of subNNs to the number of clusters").scan<'f', float>();
+    // program.add_argument("--ratio").default_value(1.0f).action([](const std::string& value) -> float { return std::stof(value); });
 
     try {
         program.parse_args(argc, argv);
@@ -49,6 +51,8 @@ int main(int argc, char* argv[]) {
 
     std::vector<size_t> nprobes = program.get<std::vector<size_t>>("nprobes");
     std::vector<std::string> opt_levels_str = program.get<std::vector<std::string>>("opt_levels");
+    std::vector<float> ratios = program.get<std::vector<float>>("ratios");
+
     size_t k = program.get<size_t>("k");
 
     std::vector<OptLevel> opt_levels;
@@ -83,6 +87,7 @@ int main(int argc, char* argv[]) {
     std::string base_path = std::format("{}/{}/origin/{}_base.{}", benchmarks_path, dataset, dataset, input_format);
     std::string query_path = std::format("{}/{}/origin/{}_query.{}", benchmarks_path, dataset, dataset, input_format);
     std::string groundtruth_path = std::format("{}/{}/result/groundtruth_{}.{}", benchmarks_path, dataset, k, output_format);
+    std::string log_path = std::format("{}/{}/result/log.csv", benchmarks_path, dataset);
 
     size_t nb, d;
     std::unique_ptr<float[]> base = nullptr;
@@ -163,7 +168,21 @@ int main(int argc, char* argv[]) {
     std::unique_ptr<idx_t[]> ground_truth_I = std::make_unique<idx_t[]>(k * nq);
     std::unique_ptr<float[]> ground_truth_D = std::make_unique<float[]>(k * nq);
 
+    std::string faiss_time_path = std::format("{}/{}/result/faiss_result_nlist_{}.txt", benchmarks_path, dataset, nlist);
     std::vector<double> faiss_time(nprobes.size(), 0.0);
+    std::ifstream faiss_time_input(faiss_time_path);
+    if (faiss_time_input.is_open()) {
+        size_t nprobe;
+        double time;
+        float recall, r2;
+        while (faiss_time_input >> nprobe >> time >> recall >> r2) {
+            auto it = std::find(nprobes.begin(), nprobes.end(), nprobe);
+            if (it != nprobes.end()) {
+                faiss_time[std::distance(nprobes.begin(), it)] = time;
+            }
+        }
+    }
+
     faiss::IndexFlatL2 quantizer(d);
     std::unique_ptr<faiss::IndexIVFFlat> index_faiss = std::make_unique<faiss::IndexIVFFlat>(&quantizer, d, nlist);
 
@@ -240,55 +259,68 @@ int main(int argc, char* argv[]) {
                 index_faiss.reset(dynamic_cast<faiss::IndexIVFFlat*>(::faiss::read_index(faiss_index_path.c_str())));
             }
         }
+        std::ofstream faiss_time_output(faiss_time_path);
+        std::unique_ptr<float[]> tmp_faiss_dis = std::make_unique<float[]>(k * nq);
+        std::unique_ptr<idx_t[]> tmp_faiss_labels = std::make_unique<idx_t[]>(k * nq);
         for (size_t i = 0; i < nprobes.size(); i++) {
-            if (faiss_time[i] != 0) {
-                continue;
-            }
             index_faiss->nprobe = nprobes[i];
             if (loop > 1) {
-                index_faiss->search(nq, query.get(), k, ground_truth_D.get(), ground_truth_I.get());
-                Stopwatch stopwatch;
-                for (size_t j = 0; j < loop; j++) {
-                    index_faiss->search(nq, query.get(), k, ground_truth_D.get(), ground_truth_I.get());
-                }
-                faiss_time[i] = stopwatch.elapsedSeconds() / loop;
-            } else {
-                Stopwatch stopwatch;
-                index_faiss->search(nq, query.get(), k, ground_truth_D.get(), ground_truth_I.get());
-                faiss_time[i] = stopwatch.elapsedSeconds();
+                index_faiss->search(nq, query.get(), k, tmp_faiss_dis.get(), tmp_faiss_labels.get());
             }
-            std::cout << std::format("Faiss nprobe: {} time: {}", nprobes[i], faiss_time[i]) << std::endl;
+            Stopwatch stopwatch;
+            for (size_t j = 0; j < loop; j++) {
+                index_faiss->search(nq, query.get(), k, tmp_faiss_dis.get(), tmp_faiss_labels.get());
+            }
+            float recall = calculate_recall(tmp_faiss_labels.get(), tmp_faiss_dis.get(), ground_truth_I.get(), ground_truth_D.get(), nq, k, metric);
+            float r2 = calculate_r2(tmp_faiss_labels.get(), tmp_faiss_dis.get(), ground_truth_I.get(), ground_truth_D.get(), nq, k, metric);
+            faiss_time[i] = stopwatch.elapsedSeconds() / loop;
+            std::cout << std::format("Faiss nprobe: {} time: {} recall: {} r2: {}", nprobes[i], faiss_time[i], recall, r2) << std::endl;
+            faiss_time_output << std::format("{} {} {} {}\n", nprobes[i], faiss_time[i], recall, r2);
         }
+        return 0;
     }
 
     for (size_t i = 0; i < nprobes.size(); i++) {
         size_t nprobe = nprobes[i];
-        double f_time = run_faiss ? faiss_time[i] : 0.0;
+        double f_time = faiss_time[i];
         index.nprobe = nprobe;
         for (const OptLevel& opt_level : opt_levels) {
             index.opt_level = opt_level;
-            std::string output_path = std::format("{}/{}/result/result_nlist_{}_nprobe_{}_opt_{}_k_{}.{}",
-                                                  benchmarks_path, dataset, nlist, nprobe, static_cast<int>(opt_level), k, output_format);
-            std::unique_ptr<float[]> distances = std::make_unique<float[]>(nq * k);
-            std::unique_ptr<idx_t[]> labels = std::make_unique<idx_t[]>(nq * k);
-            Stopwatch stopwatch;
-            if (loop > 1) {
-                index.search(nq, query.get(), k, distances.get(), labels.get());
-                for (size_t j = 0; j < loop; j++) {
-                    index.search(nq, query.get(), k, distances.get(), labels.get());
+            for (float ratio : ratios) {
+                std::string output_path = std::format("{}/{}/result/result_nlist_{}_nprobe_{}_opt_{}_k_{}_ratio_{}.{}",
+                                                      benchmarks_path, dataset, nlist, nprobe, static_cast<int>(opt_level), k, ratio, output_format);
+                std::unique_ptr<float[]> distances = std::make_unique<float[]>(nq * k);
+                std::unique_ptr<idx_t[]> labels = std::make_unique<idx_t[]>(nq * k);
+                if (loop > 1) {
+                    index.search(nq, query.get(), k, distances.get(), labels.get(), ratio);
                 }
+                Stopwatch stopwatch;
+                Stats stats;
+                for (size_t j = 0; j < loop; j++) {
+                    stats = index.search(nq, query.get(), k, distances.get(), labels.get(), ratio);
+                }
+                float recall = calculate_recall(labels.get(), distances.get(), ground_truth_I.get(), ground_truth_D.get(), nq, k, metric);
+                float r2 = calculate_r2(labels.get(), distances.get(), ground_truth_I.get(), ground_truth_D.get(), nq, k, metric);
                 double search_time = stopwatch.elapsedSeconds() / loop;
-                std::cout << std::format("Search time: {}", search_time) << std::endl;
-            } else {
-                Stats stats = index.search(nq, query.get(), k, distances.get(), labels.get());
-                stats.query_time = stopwatch.elapsedSeconds();
+                stats.simi_ratio = ratio;
+                stats.nprobe = nprobe;
+                stats.query_time = search_time;
                 stats.faiss_query_time = f_time;
                 stats.opt_level = opt_level;
+                stats.recall = recall;
+                stats.r2 = r2;
                 stats.print();
+                stats.toCsv(log_path, true);
+                // writeResultsToFile(labels.get(), distances.get(), nq, k, output_path);
+                // std::ofstream output("truth.bin", std::ios::binary);
+                // output.write(reinterpret_cast<const char*>(&nq), 4);
+                // output.write(reinterpret_cast<const char*>(&k), 4);
+                // for (size_t i = 0; i < nq; i++) {
+                //     for (size_t j = 0; j < k; j++) {
+                //         output.write(reinterpret_cast<const char*>(&ground_truth_I[i * k + j]), 4);
+                //     }
+                // }
             }
-            writeResultsToFile(labels.get(), distances.get(), nq, k, output_path);
-            float recall = calculate_recall(labels.get(), distances.get(), ground_truth_I.get(), ground_truth_D.get(), nq, k, metric);
-            std::cout << std::format("Recall: {}", recall) << std::endl;
         }
     }
 }

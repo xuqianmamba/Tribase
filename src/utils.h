@@ -191,21 +191,21 @@ class Stopwatch {
 // }
 
 // V2
-inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size) {
-    float dotProduct12 = cblas_sdot(size, vec1, 1, vec2, 1);
-    float dotProduct11 = cblas_sdot(size, vec1, 1, vec1, 1);
-    float dotProduct22 = cblas_sdot(size, vec2, 1, vec2, 1);
-    return dotProduct11 + dotProduct22 - 2 * dotProduct12;
-}
+// inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size) {
+//     float dotProduct12 = cblas_sdot(size, vec1, 1, vec2, 1);
+//     float dotProduct11 = cblas_sdot(size, vec1, 1, vec1, 1);
+//     float dotProduct22 = cblas_sdot(size, vec2, 1, vec2, 1);
+//     return dotProduct11 + dotProduct22 - 2 * dotProduct12;
+// }
 
-inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, float norm1, size_t size) {
-    float dotProduct22 = cblas_sdot(size, vec2, 1, vec2, 1);
-    return norm1 + dotProduct22 - 2 * cblas_sdot(size, vec1, 1, vec2, 1);
-}
+// inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, float norm1, size_t size) {
+//     float dotProduct22 = cblas_sdot(size, vec2, 1, vec2, 1);
+//     return norm1 + dotProduct22 - 2 * cblas_sdot(size, vec1, 1, vec2, 1);
+// }
 
-inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, float norm1, float norm2, size_t size) {
-    return norm1 + norm2 - 2 * cblas_sdot(size, vec1, 1, vec2, 1);
-}
+// inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, float norm1, float norm2, size_t size) {
+//     return norm1 + norm2 - 2 * cblas_sdot(size, vec1, 1, vec2, 1);
+// }
 
 // V3
 // inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size) {
@@ -215,14 +215,14 @@ inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, f
 // }
 
 // V4
-//  inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size) {
-//      float distance = 0.0;
-//      for (size_t i = 0; i < size; ++i) {
-//          float diff = vec1[i] - vec2[i];
-//          distance += diff * diff;
-//      }
-//      return distance;
-//  }
+inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size) {
+    float distance = 0.0;
+    for (size_t i = 0; i < size; ++i) {
+        float diff = vec1[i] - vec2[i];
+        distance += diff * diff;
+    }
+    return distance;
+}
 
 // V5
 
@@ -390,7 +390,12 @@ inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, f
 
 // Calculates the inner product between two vectors
 inline float calculatedInnerProduct(const float* vec1, const float* vec2, size_t size) {
-    return cblas_sdot(size, vec1, 1, vec2, 1);
+    // return cblas_sdot(size, vec1, 1, vec2, 1);
+    float sum = 0.0;
+    for (size_t i = 0; i < size; ++i) {
+        sum += vec1[i] * vec2[i];
+    }
+    return sum;
 }
 
 // Calculates the magnitude (length) of a vector
@@ -528,8 +533,8 @@ inline float calculate_recall(const idx_t* I, const float* D, const idx_t* GT, c
                 if (D[i * k + j] <= topK || relative_error(D[i * k + j], topK) < FEPS) {
                     correct++;
                 } else {
-                    std::cerr << std::format("D[{}, {}]= {} > topK= {}", i, j, D[i * k + j], topK) << std::endl;
-                    assert(false);
+                    // std::cerr << std::format("D[{}, {}]= {} > topK= {}", i, j, D[i * k + j], topK) << std::endl;
+                    // assert(false);
                 }
             }
         }
@@ -548,14 +553,34 @@ inline float calculate_recall(const idx_t* I, const float* D, const idx_t* GT, c
                 if (D[i * k + j] >= topK || relative_error(D[i * k + j], topK) < FEPS) {
                     correct++;
                 } else {
-                    std::cerr << std::format("D[{}, {}]= {} < topK= {}", i, j, D[i * k + j], topK) << std::endl;
-                    assert(false);
+                    // std::cerr << std::format("D[{}, {}]= {} < topK= {}", i, j, D[i * k + j], topK) << std::endl;
+                    // assert(false);
                 }
             }
         }
     }
     assert(1.0 * true_correct / correct > 0.99);
     return static_cast<float>(correct) / (nq * k);
+}
+
+inline float calculate_r2(const idx_t* I, const float* D, const idx_t* GT, const float* GD, size_t nq, size_t k, MetricType metric, size_t gt_k = 0) {
+    if (gt_k == 0) {
+        gt_k = k;
+    }
+    size_t true_correct = 0;
+    size_t correct = 0;
+    if (k > gt_k) {
+        throw std::invalid_argument("k should be less than or equal to gt_k.");
+    }
+    float g_sum = 0;
+    float sum = 0;
+    for (size_t i = 0; i < nq; i++) {
+        for (size_t j = 0; j < k; j++) {
+            g_sum += GD[i * gt_k + j];
+            sum += D[i * k + j];
+        }
+    }
+    return (sum / g_sum - 1) * 100;
 }
 
 inline void output_codes(const float* code, size_t d) {

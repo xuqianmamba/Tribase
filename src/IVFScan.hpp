@@ -154,8 +154,8 @@ class IVFScan : public IVFScanBase {
             const float candicate_norm = codes_norms[i];
             float dis;
             if constexpr (metric == MetricType::METRIC_L2) {
-                // dis = dis_calculator(query, candicate, d);
-                dis = calculatedEuclideanDistance(query, candicate, query_norm, d);
+                dis = dis_calculator(query, candicate, d);
+                // dis = calculatedEuclideanDistance(query, candicate, query_norm, d);
                 // dis = calculatedEuclideanDistance(query, candicate, query_norm, candicate_norm, d);
             } else {
                 dis = dis_calculator(query, candicate, d);
