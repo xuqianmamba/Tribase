@@ -6,6 +6,7 @@
 #include <faiss/IndexFlat.h>
 #include <faiss/IndexIVFFlat.h>
 #include <gtest/gtest.h>
+#include "../utils.h"
 
 TEST(FaissTest, Basic) {
     using idx_t = faiss::idx_t;
@@ -45,6 +46,9 @@ TEST(FaissTest, Basic) {
         idx_t* I = new idx_t[k * nq];
         float* D = new float[k * nq];
 
+        idx_t* GI = new idx_t[k * nq];
+        float* GD = new float[k * nq];
+
         index.search(nq, xq, k, D, I);
 
         printf("I=\n");
@@ -54,8 +58,11 @@ TEST(FaissTest, Basic) {
             printf("\n");
         }
 
-        index.nprobe = 10;
+        index.nprobe = 1;
         index.search(nq, xq, k, D, I);
+
+        index.nprobe = index.nlist;
+        index.search(nq, xq, k, GD, GI);
 
         printf("I=\n");
         for (int i = nq - 5; i < nq; i++) {
@@ -64,8 +71,12 @@ TEST(FaissTest, Basic) {
             printf("\n");
         }
 
+        auto recall = tribase::calculate_recall(I, D, GI, GD, nq, k, tribase::MetricType::METRIC_L2);
+        std::cout << "recall: " << recall << std::endl;
         delete[] I;
         delete[] D;
+        delete[] GI;
+        delete[] GD;
     }
 
     delete[] xb;

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <mkl.h>
+// #include <mkl.h>
 // #include <mkl_cblas.h>
 #include <immintrin.h>  // 包含AVX2和其他SIMD指令集的头文件
 #include <Eigen/Dense>
@@ -497,6 +497,41 @@ inline float relative_error(float x, float y) {
 }
 
 #define FEPS 1e-4
+
+inline void calculate_true_distance(const float* codes, const float* query, const idx_t* id, float* distance, size_t size, int k, int d, size_t nb) {
+#pragma omp parallel for
+    for (size_t i = 0; i < size; i++) {
+        for (size_t j = 0; j < k; j++) {
+            size_t index = i * k + j;
+            idx_t target = id[index];
+            if (target > 0) {
+                distance[index] = calculatedEuclideanDistance(codes + target * d, query + i * d, d);
+            }
+        }
+    }
+}
+
+inline float calculate_strict_recall(const idx_t* I, const float* D, const idx_t* GT, const float* GD, size_t nq, size_t k, MetricType metric, size_t gt_k = 0) {
+    if (gt_k == 0) {
+        gt_k = k;
+    }
+    size_t true_correct = 0;
+    if (k > gt_k) {
+        throw std::invalid_argument("k should be less than or equal to gt_k.");
+    }
+    for (size_t i = 0; i < nq; ++i) {
+        std::unordered_set<idx_t> groundtruth(GT + i * gt_k, GT + i * gt_k + k);
+        for (size_t j = 0; j < k; ++j) {
+            if (I[i * k + j] == -1) {
+                break;
+            }
+            if (groundtruth.find(I[i * k + j]) != groundtruth.end()) {
+                true_correct++;
+            }
+        }
+    }
+    return static_cast<double>(true_correct) / (nq * k);
+}
 
 inline float calculate_recall(const idx_t* I, const float* D, const idx_t* GT, const float* GD, size_t nq, size_t k, MetricType metric, size_t gt_k = 0) {
     if (gt_k == 0) {
