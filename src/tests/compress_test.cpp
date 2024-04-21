@@ -7,6 +7,7 @@
 #include <random>
 #include <stdfloat>
 #include "../compress/repair_compress.h"
+#include "../compress/check.h"
 #include "../compress/utils.h"
 #include "../utils.h"
 
@@ -28,7 +29,7 @@ TEST(COMPRESS, BASIC) {
     generate_random_data(udata.get(), n, dim, 256);
     value_t* data = udata.get();
 #else
-    auto [float_udata, n, dim] = loadFvecs("/home/panjunda/tribase/Tribase/benchmarks/msong/origin/msong_base.fvecs");
+    auto [float_udata, n, dim] = loadFvecs("/home/xuqian/Triangle/benchmarks/msong/origin/msong_base.fvecs");
     static_assert(sizeof(value_t) == sizeof(float));
     // value_t* data = reinterpret_cast<value_t*>(float_udata.get());
     std::unique_ptr<value_t[]> udata = std::make_unique<value_t[]>(n * dim);
@@ -50,6 +51,38 @@ TEST(COMPRESS, BASIC) {
 
     std::cout << std::format("time: {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()) << std::endl;
 
+    pair_reverse_map_t <value_t> rule_reverse;
+    for (const auto& kv : rule) {
+        rule_reverse[kv.second] = kv.first;
+    }
+
+
+    bool status = check_compress(data, n, dim, result_vlist, result_elist, rule_reverse);
+
+    if (status) {
+        std::cout << "Success: The decompressed data matches the original data.\n";
+    } else {
+        std::cout << "Failure: The decompressed data does not match the original data.\n";
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     if (n * dim < 256) {
         for (auto [pair, value] : rule) {
             std::cout << pair.first << " " << pair.second << " -> " << value << std::endl;
@@ -67,9 +100,9 @@ TEST(COMPRESS, BASIC) {
     }
 }
 
-TEST(DISABLED_COMPRESS, MSONG) {
+TEST(COMPRESS, msong) {
     using namespace tribase;
-    auto [float_udata, n, dim] = loadFvecs("/home/panjunda/tribase/Tribase/benchmarks/msong/origin/msong_base.fvecs");
+    auto [float_udata, n, dim] = loadFvecs("/home/xuqian/Triangle/benchmarks/msong/origin/msong_base.fvecs");
     static_assert(sizeof(value_t) == sizeof(float));
     // value_t* data = reinterpret_cast<value_t*>(float_udata.get());
     std::unique_ptr<value_t[]> udata = std::make_unique<value_t[]>(n * dim);
@@ -78,16 +111,44 @@ TEST(DISABLED_COMPRESS, MSONG) {
 
     // covert2fixed(reinterpret_cast<int*>(udata.get()), float_udata.get(), n * dim, true, 6, 0);
 
-    auto [s, lb, rb] = autocovert2fixed(udata.get(), float_udata.get(), n * dim, 24);
+    auto [s, lb, rb] = autocovert2fixed(udata.get(), float_udata.get(), n * dim, 16);
     std::cout << "s: " << s << ", lb: " << lb << ", rb: " << rb << std::endl;
 
-    n /= 10;
+    
 
     value_t* data = udata.get();
     std::cout << "n: " << n << ", dim: " << dim << std::endl;
 
     auto start = std::chrono::steady_clock::now();
     auto [rule, result_vlist, result_elist] = generate_rule(data, n, dim, 4, true);
+
+    pair_reverse_map_t <value_t> rule_reverse;
+    for (const auto& kv : rule) {
+        rule_reverse[kv.second] = kv.first;
+    }
+
+    bool status = check_compress(data, n, dim, result_vlist, result_elist, rule_reverse);
+
+    if (status) {
+        std::cout << "Success: The decompressed data matches the original data.\n";
+    } else {
+        std::cout << "Failure: The decompressed data does not match the original data.\n";
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     auto end = std::chrono::steady_clock::now();
 
     std::cout << std::format("time: {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()) << std::endl;
@@ -111,8 +172,8 @@ TEST(COMPRESS, Faiss) {
     std::mt19937 rng;
     std::uniform_real_distribution<> distrib;
 
-    auto [base, nb, d] = loadFvecs("/home/panjunda/tribase/Tribase/benchmarks/msong/origin/msong_base.fvecs");
-    auto [query, nq, _] = loadFvecs("/home/panjunda/tribase/Tribase/benchmarks/msong/origin/msong_query.fvecs");
+    auto [base, nb, d] = loadFvecs("/home/xuqian/Triangle/benchmarks/msong/origin/msong_base.fvecs");
+    auto [query, nq, _] = loadFvecs("/home/xuqian/Triangle/benchmarks/msong/origin/msong_query.fvecs");
 
     float* xb = base.get();
     float* xq = query.get();
