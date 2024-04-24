@@ -32,6 +32,14 @@ class IVFScanBase {
                             size_t list_size,
                             const float* codes,
                             const size_t* ids,
+                            float* simi,
+                            idx_t* idxi) = 0;
+
+    virtual void scan_codes(size_t scan_begin,
+                            size_t scan_end,
+                            size_t list_size,
+                            const float* codes,
+                            const size_t* ids,
                             const float* codes_norms,
                             const float centroid2query,
                             const float* candicate2centroid,
@@ -62,6 +70,32 @@ class IVFScan : public IVFScanBase {
                          float* simi,
                          idx_t* idxi) override {
         for (size_t i = 0; i < list_size; i++) {
+            const float* candicate = codes + i * d;
+            float dis = 0;
+            if constexpr (metric == MetricType::METRIC_IP) {
+                dis = calculatedInnerProduct(query, candicate, d);
+                if (dis > simi[0]) {
+                    heap_replace_top<metric>(k, simi, idxi, dis, ids[i]);
+                }
+            } else if constexpr (metric == MetricType::METRIC_L2) {
+                dis = calculatedEuclideanDistance(query, candicate, d);
+                if (dis < simi[0]) {
+                    heap_replace_top<metric>(k, simi, idxi, dis, ids[i]);
+                }
+            } else {
+                static_assert(false, "Unsupported metric type");
+            }
+        }
+    }
+
+    void scan_codes(size_t scan_begin,
+                    size_t scan_end,
+                    [[maybe_unused]] size_t list_size,
+                    const float* codes,
+                    const size_t* ids,
+                    float* simi,
+                    idx_t* idxi) override {
+        for (size_t i = scan_begin; i < scan_end; i++) {
             const float* candicate = codes + i * d;
             float dis = 0;
             if constexpr (metric == MetricType::METRIC_IP) {

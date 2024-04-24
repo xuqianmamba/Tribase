@@ -12,8 +12,10 @@ class IVF {
     size_t d;
     size_t sub_k;
     OptLevel opt_level;
+
     std::unique_ptr<size_t[]> candidate_id;
     std::unique_ptr<float[]> candidate_codes;
+
     std::unique_ptr<float[]> candidate_norms;
     std::unique_ptr<float[]> candidate2centroid;
     std::unique_ptr<float[]> sqrt_candidate2centroid;

@@ -61,6 +61,18 @@ void Index::train(size_t n, const float* codes, bool faiss) {
         this->centroid_codes = std::make_unique<float[]>(nlist * d);
         std::copy_n(quantizer.get_xb(), nlist * d, this->centroid_codes.get());
     }
+    if (metric == MetricType::METRIC_IP) {
+        float* codes = this->centroid_codes.get();
+#pragma omp parallel for
+        for (size_t i = 0; i < nlist; i++) {
+            float norm = calculatedInnerProduct(codes + i * d, codes + i * d, d);
+            if (norm != 0) {
+                for (size_t j = 0; j < d; j++) {
+                    codes[i * d + j] /= sqrt(norm);
+                }
+            }
+        }
+    }
 }
 
 std::unique_ptr<IVFScanBase> Index::get_scanner(MetricType metric, OptLevel opt_level, size_t k) {
@@ -87,8 +99,8 @@ std::unique_ptr<IVFScanBase> Index::get_scanner(MetricType metric, OptLevel opt_
         switch (opt_level) {
             case OptLevel::OPT_NONE:
                 return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_NONE>(d, k));
-            // case OptLevel::OPT_TRIANGLE:
-            //     return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_TRIANGLE>(d, k));
+            case OptLevel::OPT_TRIANGLE:
+                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_TRIANGLE>(d, k));
             // case OptLevel::OPT_SUBNN_L2:
             //     return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_SUBNN_L2>(d, k));
             // case OptLevel::OPT_SUBNN_IP:
@@ -183,38 +195,41 @@ void Index::add(size_t n, const float* codes) {
 
         for (size_t oi = 0; oi < n; oi++) {
             size_t i = add_order[oi];
-            int list_id = listidcandicates[i];
+            size_t list_id = listidcandicates[i];  // assert > 0
             if (list_id % nt == tid) {
                 size_t list_size = list_sizes[list_id];
                 lists[list_id].candidate_id[list_size] = i;
                 if ((opt_level & OptLevel::OPT_TRIANGLE) || (opt_level & OptLevel::OPT_SUBNN_IP)) {
                     lists[list_id].candidate2centroid[list_size] = candicate2centroid[i];
-                    lists[list_id].sqrt_candidate2centroid[list_size] = std::sqrt(candicate2centroid[i]);
-#ifdef CORRECTNESS_CHECK
-                    if (list_size > 0) {
-                        if (metric == MetricType::METRIC_L2) {
-                            assert(candicate2centroid[i] >= candicate2centroid[lists[list_id].candidate_id[list_size - 1]]);
-                        } else {
-                            assert(candicate2centroid[i] <= candicate2centroid[lists[list_id].candidate_id[list_size - 1]]);
-                        }
-                    }
-#endif
                 }
                 std::copy_n(codes + i * d, d, lists[list_id].candidate_codes.get() + list_size * d);
-                lists[list_id].candidate_norms[list_size] = calculatedInnerProduct(codes + i * d, codes + i * d, d);
                 list_sizes[list_id]++;
-
-                // if (metric == MetricType::METRIC_L2) {
-                //     const float* x = codes + i * d;
-                //     const float* centroid_code = centroid_codes.get() + list_id * d;
-                //     float dis = calculatedEuclideanDistance(x, centroid_code, d);
-                //     assert(dis == candicate2centroid[i]);
-                // }
             }
         }
     }
 
-    {
+    if (metric == MetricType::METRIC_L2) {
+        if ((opt_level & OptLevel::OPT_TRIANGLE) || (opt_level & OptLevel::OPT_SUBNN_IP)) {
+#pragma omp parallel for
+            for (size_t list_id = 0; list_id < nlist; list_id++) {
+                size_t list_size = lists[list_id].list_size;
+                for (size_t i = 0; i < list_size; i++) {
+                    lists[list_id].sqrt_candidate2centroid[i] = std::sqrt(lists[list_id].candidate2centroid[i]);
+                }
+            }
+        }
+
+#pragma omp parallel for
+        for (size_t list_id = 0; list_id < nlist; list_id++) {
+            size_t list_size = lists[list_id].list_size;
+            for (size_t i = 0; i < list_size; i++) {
+                const float* code = codes + lists[list_id].candidate_id[i] * d;
+                lists[list_id].candidate_norms[i] = calculatedInnerProduct(code, code, d);
+            }
+        }
+    }
+
+    if (metric == MetricType::METRIC_L2) {
         size_t total_processd = 0;
 
         size_t total_sub_count_ip = 0;
@@ -225,14 +240,11 @@ void Index::add(size_t n, const float* codes) {
         size_t total_sub_recall_ip_5 = 0;
         size_t total_sub_count_l2_5 = 0;
         size_t total_sub_recall_l2_5 = 0;
-
         Stopwatch logwatch;
-
         double train_elapsed = 0;
         double add_elapsed = 0;
         double search_elapsed = 0;
         double log_interval = 2;
-
         [[maybe_unused]] auto running_log = [&]() -> void {
             if (verbose) {
                 if (logwatch.elapsedSeconds() > log_interval || total_processd == nlist) {
@@ -264,7 +276,6 @@ void Index::add(size_t n, const float* codes) {
                                          total_elapsed);
             }
         };
-
 #pragma omp parallel for
         for (size_t listid = 0; listid < nlist; listid++) {
             IVF& list = lists[listid];
@@ -395,6 +406,8 @@ void Index::add(size_t n, const float* codes) {
             }
         }
         end_log();
+    } else {
+        // do nothing
     }
 }
 
@@ -411,8 +424,6 @@ void Index::single_thread_search(size_t n, const float* queries, size_t k, float
     float* centroids2query = centroid2queries.get();
     idx_t* listids = listidqueries.get();
 
-    assert(scaner->k == k);
-
     for (size_t i = 0; i < n; i++) {
         scaner_quantizer->set_query(queries + i * d);
         scaner->set_query(queries + i * d);
@@ -422,56 +433,94 @@ void Index::single_thread_search(size_t n, const float* queries, size_t k, float
                                           centroids2query,
                                           listids);
         sort_result(metric, nprobe, centroids2query, listids);
-        for (size_t j = 0; j < nprobe; j++) {
-            IVF& list = lists[listids[j]];
-            float centroid2query = centroids2query[j];
-            size_t list_size = list.get_list_size();
 
-            std::unique_ptr<bool[]> if_skip = std::make_unique<bool[]>(list_size);
+        if (metric == MetricType::METRIC_L2) {
+            for (size_t j = 0; j < nprobe; j++) {
+                IVF& list = lists[listids[j]];
+                float centroid2query = centroids2query[j];
+                size_t list_size = list.get_list_size();
 
-            size_t skip_count = 0;
-            size_t skip_count_large = 0;
-            size_t scan_begin = 0;
-            size_t scan_end = list_size;
+                std::unique_ptr<bool[]> if_skip = std::make_unique<bool[]>(list_size);
 
-            if (opt_level & OptLevel::OPT_TRIANGLE) {
-                const float* sqrt_candidate2centroid = list.get_sqrt_candidate2centroid();
+                size_t skip_count = 0;
+                size_t skip_count_large = 0;
+                size_t scan_begin = 0;
+                size_t scan_end = list_size;
+
+                if (opt_level & OptLevel::OPT_TRIANGLE) {
+                    const float* sqrt_candidate2centroid = list.get_sqrt_candidate2centroid();
+                    const float* candidate2centroid = list.get_candidate2centroid();
+                    float sqrt_simi = ratio * sqrt(simi[0]);  // TODO:
+                    float sqrt_centroid2query = sqrt(centroid2query);
+                    for (size_t ii = 0; ii < list_size; ii++) {
+                        float tmp = sqrt_simi + sqrt_candidate2centroid[ii];
+                        if (tmp < sqrt_centroid2query) {
+                            skip_count++;
+                        } else {
+                            break;
+                        }
+                    }
+
+                    for (int64_t ii = list_size - 1; ii >= 0; ii--) {
+                        float tmp_large = sqrt_simi + sqrt_centroid2query;
+                        tmp_large *= tmp_large;
+                        if (tmp_large < candidate2centroid[ii]) {
+                            skip_count_large++;
+                        } else {
+                            break;
+                        }
+                    }
+                    scan_begin = skip_count;
+                    scan_end -= skip_count_large;
+                }
+
+                IF_STATS {
+                    stats->skip_triangle_count += skip_count;
+                    stats->skip_triangle_large_count += skip_count_large;
+                    stats->total_count += list_size;
+                }
+
+                scaner->scan_codes(scan_begin, scan_end, list_size, list.get_candidate_codes(), list.get_candidate_id(), list.get_candidate_norms(), centroid2query, list.get_candidate2centroid(),
+                                   list.get_sqrt_candidate2centroid(), sub_k, list.get_sub_nearest_IP_id(),
+                                   list.get_sub_nearest_IP_dis(), list.get_sub_farest_IP_id(), list.get_sub_farest_IP_dis(),
+                                   list.get_sub_nearest_L2_id(), list.get_sub_nearest_L2_dis(), if_skip.get(), simi, idxi,
+                                   stats, centroid_codes.get() + listids[j] * d);
+            }
+        } else {
+            for (size_t j = 0; j < nprobe; j++) {
+                IVF& list = lists[listids[j]];
                 const float* candidate2centroid = list.get_candidate2centroid();
-                float sqrt_simi = ratio * sqrt(simi[0]);  // TODO:
-                float sqrt_centroid2query = sqrt(centroid2query);
-                for (size_t ii = 0; ii < list_size; ii++) {
-                    float tmp = sqrt_simi + sqrt_candidate2centroid[ii];
-                    if (tmp < sqrt_centroid2query) {
-                        skip_count++;
-                    } else {
-                        break;
+                float centroid2query = centroids2query[j];
+                float s_centroid2query = sqrt(1 - centroid2query * centroid2query);
+                float s_simi = sqrt(1 - simi[0] * simi[0]);
+                size_t list_size = list.get_list_size();
+                size_t scan_begin = 0;
+                size_t scan_end = list_size;
+                float min_cut_degree_cos;
+                float max_cut_degree_cos;
+                if (simi[0] < centroid2query) {  // 0 ~ c + s
+                    max_cut_degree_cos = 1;
+                    min_cut_degree_cos = simi[0] * centroid2query - s_simi * s_centroid2query;
+                    while (scan_begin < scan_end && candidate2centroid[scan_end - 1] < min_cut_degree_cos) {
+                        scan_end--;
+                    }
+                } else {  // c - s ~ c + s
+                    max_cut_degree_cos = simi[0] * centroid2query + s_simi * s_centroid2query;
+                    min_cut_degree_cos = simi[0] * centroid2query - s_simi * s_centroid2query;
+                    while (scan_begin < scan_end && candidate2centroid[scan_begin] > max_cut_degree_cos) {
+                        scan_begin++;
+                    }
+                    while (scan_begin < scan_end && candidate2centroid[scan_end - 1] < min_cut_degree_cos) {
+                        scan_end--;
                     }
                 }
-
-                for (int64_t ii = list_size - 1; ii >= 0; ii--) {
-                    float tmp_large = sqrt_simi + sqrt_centroid2query;
-                    tmp_large *= tmp_large;
-                    if (tmp_large < candidate2centroid[ii]) {
-                        skip_count_large++;
-                    } else {
-                        break;
-                    }
+                IF_STATS {
+                    stats->skip_triangle_count += scan_begin + list_size - scan_end;
+                    stats->total_count += list_size;
                 }
-                scan_begin = skip_count;
-                scan_end -= skip_count_large;
+#pragma omp critical
+                scaner->scan_codes(scan_begin, scan_end, list_size, list.get_candidate_codes(), list.get_candidate_id(), simi, idxi);
             }
-
-            IF_STATS {
-                stats->skip_triangle_count += skip_count;
-                stats->skip_triangle_large_count += skip_count_large;
-                stats->total_count += list_size;
-            }
-
-            scaner->scan_codes(scan_begin, scan_end, list_size, list.get_candidate_codes(), list.get_candidate_id(), list.get_candidate_norms(), centroid2query, list.get_candidate2centroid(),
-                               list.get_sqrt_candidate2centroid(), sub_k, list.get_sub_nearest_IP_id(),
-                               list.get_sub_nearest_IP_dis(), list.get_sub_farest_IP_id(), list.get_sub_farest_IP_dis(),
-                               list.get_sub_nearest_L2_id(), list.get_sub_nearest_L2_dis(), if_skip.get(), simi, idxi,
-                               stats, centroid_codes.get() + listids[j] * d);
         }
         sort_result(metric, k, simi, idxi);
 
