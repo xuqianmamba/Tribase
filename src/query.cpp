@@ -32,12 +32,13 @@ int main(int argc, char* argv[]) {
     // program.add_argument("--opt_levels").default_value(std::vector<std::string>({"OPT_TRI_SUBNN_L2"})).nargs(0, 10).help("optimization levels");
     program.add_argument("--train_only").default_value(false).implicit_value(true).help("train only");
     program.add_argument("--cache").default_value(false).implicit_value(true).help("use cached index");
-    program.add_argument("--high_precision_subNN_index").default_value(false).implicit_value(true).help("use high precision subNN index");
+    program.add_argument("--sub_nprobe_ratio").default_value(1.0f).action([](const std::string& value) -> float { return std::stof(value); });
     program.add_argument("--metric").default_value("l2").help("metric type");
     program.add_argument("--run_faiss").default_value(false).implicit_value(true).help("run faiss");
     program.add_argument("--loop").default_value(1ul).action([](const std::string& value) -> size_t { return std::stoul(value); });
     program.add_argument("--nlist").default_value(0ul).action([](const std::string& value) -> size_t { return std::stoul(value); });
     program.add_argument("--verbose").default_value(false).implicit_value(true).help("verbose");
+    // program.add_argument("--mini").default_value(false).implicit_value(true).help("1/100 datasets");
     program.add_argument("--ratios").default_value(std::vector<float>({1.0f})).nargs(0, 100).help("ratio of the number of subNNs to the number of clusters").scan<'f', float>();
     // program.add_argument("--ratio").default_value(1.0f).action([](const std::string& value) -> float { return std::stof(value); });
 
@@ -82,7 +83,7 @@ int main(int argc, char* argv[]) {
 
     bool train_only = program.get<bool>("train_only");
     bool cache = program.get<bool>("cache");
-    bool high_precision_subNN_index = program.get<bool>("high_precision_subNN_index");
+    float sub_nprobe_ratio = program.get<float>("sub_nprobe_ratio");
 
     std::string base_path = std::format("{}/{}/origin/{}_base.{}", benchmarks_path, dataset, dataset, input_format);
     std::string query_path = std::format("{}/{}/origin/{}_query.{}", benchmarks_path, dataset, dataset, input_format);
@@ -94,6 +95,11 @@ int main(int argc, char* argv[]) {
     std::tie(nb, d) = loadFvecsInfo(base_path);
     if (nlist == 0) {
         nlist = static_cast<size_t>(std::sqrt(nb));
+    }
+    size_t sub_nlist = std::sqrt(nb / nlist);
+    size_t sub_nprobe = std::max(static_cast<size_t>(sub_nlist * sub_nprobe_ratio), 1ul);
+    if (verbose) {
+        std::cout << std::format("sub_nlist: {} sub_nprobe: {}", sub_nlist, sub_nprobe) << std::endl;
     }
 
     for (const OptLevel& opt_level : opt_levels) {
@@ -113,13 +119,13 @@ int main(int argc, char* argv[]) {
         for (int i = 0; i < 8; i++) {
             // target is a subset of i
             if ((target & i) == target) {
-                std::string index_path = std::format("{}/{}/index/index_nlist_{}_opt_{}_{}.index", benchmarks_path, dataset, nlist, i, high_precision_subNN_index ? "high_precision" : "low_precision");
+                std::string index_path = std::format("{}/{}/index/index_nlist_{}_opt_{}_subNprobeRatio_{}.index", benchmarks_path, dataset, nlist, i, sub_nprobe_ratio);
                 if (std::filesystem::exists(index_path)) {
                     return index_path;
                 }
             }
         }
-        return std::format("{}/{}/index/index_nlist_{}_opt_{}_{}.index", benchmarks_path, dataset, nlist, target, high_precision_subNN_index ? "high_precision" : "low_precision");
+        return std::format("{}/{}/index/index_nlist_{}_opt_{}_subNprobeRatio_{}.index", benchmarks_path, dataset, nlist, target, sub_nprobe_ratio);
     };
 
     auto get_faiss_index_path = [&]() {
@@ -143,12 +149,8 @@ int main(int argc, char* argv[]) {
     } else {
         std::tie(base, nb, d) = loadFvecs(base_path);
         nlist = static_cast<size_t>(std::sqrt(nb));
-        if (high_precision_subNN_index) {
-            index = Index(d, nlist, 0, metric, added_opt_levels, 15, 1, 1, verbose);
-        } else {
-            index = Index(d, nlist, 0, metric, added_opt_levels, 15, 20, 5, verbose);
-        }
-        index.train(nb, base.get(), false);
+        index = Index(d, nlist, 0, metric, added_opt_levels, 15, sub_nlist, sub_nprobe, verbose);
+        index.train(nb, base.get());
         index.add(nb, base.get());
         if (verbose) {
             std::cout << std::format("Index trained") << std::endl;

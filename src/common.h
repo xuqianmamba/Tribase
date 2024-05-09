@@ -27,6 +27,7 @@ enum OptLevel {
     OPT_SUBNN_IP = 0b100,
     OPT_TRI_SUBNN_L2 = 0b011,
     OPT_TRI_SUBNN_IP = 0b101,
+    OPT_SUBNN_ONLY = 0b110,
     OPT_ALL = 0b111
 };
 
@@ -38,6 +39,7 @@ inline bool isLegalOptLevel(int opt) {
         case OPT_SUBNN_IP:
         case OPT_TRI_SUBNN_L2:
         case OPT_TRI_SUBNN_IP:
+        case OPT_SUBNN_ONLY:
         case OPT_ALL:
             return true;
         default:
@@ -67,6 +69,8 @@ inline OptLevel str2OptLevel(const std::string& str) {
         return OptLevel::OPT_TRI_SUBNN_L2;
     } else if (str == "OPT_TRI_SUBNN_IP") {
         return OptLevel::OPT_TRI_SUBNN_IP;
+    } else if (str == "OPT_SUBNN_ONLY") {
+        return OptLevel::OPT_SUBNN_ONLY;
     } else if (str == "OPT_ALL") {
         return OptLevel::OPT_ALL;
     } else {

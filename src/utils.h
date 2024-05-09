@@ -591,7 +591,7 @@ inline float calculate_r2(const idx_t* I, const float* D, const idx_t* GT, const
             sum += D[i * k + j];
         }
     }
-    return (sum / g_sum - 1) * 100;
+    return sum / g_sum - 1;
 }
 
 inline void output_codes(const float* code, size_t d) {

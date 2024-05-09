@@ -43,10 +43,11 @@ Index& Index::operator=(Index&& other) noexcept {
 
 void Index::train(size_t n, const float* codes, bool faiss) {
     // 这里假设Clustering类已经定义好，并且有一个合适的构造函数和train方法
+    auto tic1 = std::chrono::high_resolution_clock::now();
     if (!faiss) {
         ClusteringParameters cp;
         cp.metric = this->metric;
-        cp.niter = 25;                     // 或其他合适的值
+        cp.niter = 20;                     // 或其他合适的值
         cp.seed = 6666;                    // 或其他合适的值
         cp.max_points_per_centroid = 256;  // 或其他合适的值
 
@@ -55,8 +56,8 @@ void Index::train(size_t n, const float* codes, bool faiss) {
 
         this->centroid_codes.reset(clustering.get_centroids());
     } else {
-        ::faiss::IndexFlatL2 quantizer(d);  // the other index
-        ::faiss::IndexIVFFlat index(&quantizer, d, nlist);
+        faiss::IndexFlatL2 quantizer(d);  // the other index
+        faiss::IndexIVFFlat index(&quantizer, d, nlist);
         index.train(n, codes);
         this->centroid_codes = std::make_unique<float[]>(nlist * d);
         std::copy_n(quantizer.get_xb(), nlist * d, this->centroid_codes.get());
@@ -72,6 +73,10 @@ void Index::train(size_t n, const float* codes, bool faiss) {
                 }
             }
         }
+    }
+    auto tic2 = std::chrono::high_resolution_clock::now();
+    if (verbose) {
+        std::cout << std::format("train elapsed: {:.2f}s\n", std::chrono::duration<double>(tic2 - tic1).count());
     }
 }
 
@@ -90,6 +95,8 @@ std::unique_ptr<IVFScanBase> Index::get_scanner(MetricType metric, OptLevel opt_
                 return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_TRI_SUBNN_L2>(d, k));
             case OptLevel::OPT_TRI_SUBNN_IP:
                 return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_TRI_SUBNN_IP>(d, k));
+            case OptLevel::OPT_SUBNN_ONLY:
+                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_SUBNN_ONLY>(d, k));
             case OptLevel::OPT_ALL:
                 return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_ALL>(d, k));
             default:
@@ -134,7 +141,12 @@ void Index::single_thread_nearest_cluster_search(size_t n, const float* queries,
 }
 
 void Index::add(size_t n, const float* codes) {
+    auto tic1 = std::chrono::high_resolution_clock::now();
     if (n == 0) {
+        auto tic2 = std::chrono::high_resolution_clock::now();
+        if (verbose) {
+            std::cout << std::format("add elapsed: {:.2f}s\n", std::chrono::duration<double>(tic2 - tic1).count());
+        }
         return;
     }
 
@@ -408,6 +420,11 @@ void Index::add(size_t n, const float* codes) {
         end_log();
     } else {
         // do nothing
+    }
+
+    auto tic2 = std::chrono::high_resolution_clock::now();
+    if (verbose) {
+        std::cout << std::format("add elapsed: {:.2f}s\n", std::chrono::duration<double>(tic2 - tic1).count());
     }
 }
 
