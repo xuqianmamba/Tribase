@@ -58,7 +58,7 @@ class IVFScanBase {
                             const float* centroid_code) = 0;
 };
 
-template <MetricType metric, OptLevel opt_level>
+template <MetricType metric, OptLevel opt_level, EdgeDevice edge_device_enabled>
 class IVFScan : public IVFScanBase {
    public:
     IVFScan(size_t d, size_t k)
@@ -73,12 +73,20 @@ class IVFScan : public IVFScanBase {
             const float* candicate = codes + i * d;
             float dis = 0;
             if constexpr (metric == MetricType::METRIC_IP) {
-                dis = calculatedInnerProduct(query, candicate, d);
+                if constexpr (!edge_device_enabled) {
+                    dis = calculatedInnerProduct(query, candicate, d);
+                } else {
+                    dis = calculatedInnerProduct0(query, candicate, d);
+                }
                 if (dis > simi[0]) {
                     heap_replace_top<metric>(k, simi, idxi, dis, ids[i]);
                 }
             } else if constexpr (metric == MetricType::METRIC_L2) {
-                dis = calculatedEuclideanDistance(query, candicate, d);
+                if constexpr (!edge_device_enabled) {
+                    dis = calculatedEuclideanDistance(query, candicate, d);
+                } else {
+                    dis = calculatedEuclideanDistance0(query, candicate, d);
+                }
                 if (dis < simi[0]) {
                     heap_replace_top<metric>(k, simi, idxi, dis, ids[i]);
                 }
@@ -99,12 +107,20 @@ class IVFScan : public IVFScanBase {
             const float* candicate = codes + i * d;
             float dis = 0;
             if constexpr (metric == MetricType::METRIC_IP) {
-                dis = calculatedInnerProduct(query, candicate, d);
+                if constexpr (!edge_device_enabled) {
+                    dis = calculatedInnerProduct(query, candicate, d);
+                } else {
+                    dis = calculatedInnerProduct0(query, candicate, d);
+                }
                 if (dis > simi[0]) {
                     heap_replace_top<metric>(k, simi, idxi, dis, ids[i]);
                 }
             } else if constexpr (metric == MetricType::METRIC_L2) {
-                dis = calculatedEuclideanDistance(query, candicate, d);
+                if constexpr (!edge_device_enabled) {
+                    dis = calculatedEuclideanDistance(query, candicate, d);
+                } else {
+                    dis = calculatedEuclideanDistance0(query, candicate, d);
+                }
                 if (dis < simi[0]) {
                     heap_replace_top<metric>(k, simi, idxi, dis, ids[i]);
                 }

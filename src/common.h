@@ -31,6 +31,11 @@ enum OptLevel {
     OPT_ALL = 0b111
 };
 
+enum EdgeDevice {
+    EDGEDEVIVE_ENABLED,
+    EDGEDEVIVE_DISABLED
+};
+
 inline bool isLegalOptLevel(int opt) {
     switch (opt) {
         case OPT_NONE:

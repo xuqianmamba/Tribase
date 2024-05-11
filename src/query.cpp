@@ -170,7 +170,7 @@ int main(int argc, char* argv[]) {
     std::unique_ptr<idx_t[]> ground_truth_I = std::make_unique<idx_t[]>(k * nq);
     std::unique_ptr<float[]> ground_truth_D = std::make_unique<float[]>(k * nq);
 
-    std::string faiss_time_path = std::format("{}/{}/result/faiss_result_nlist_{}.txt", benchmarks_path, dataset, nlist);
+    std::string faiss_time_path = std::format("{}/{}/result/faiss_result.txt", benchmarks_path, dataset);
     std::vector<double> faiss_time(nprobes.size(), 0.0);
     std::ifstream faiss_time_input(faiss_time_path);
     if (faiss_time_input.is_open()) {
@@ -282,6 +282,7 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
+    index.edge_device_enabled = EdgeDevice::EDGEDEVIVE_ENABLED;
     for (size_t i = 0; i < nprobes.size(); i++) {
         size_t nprobe = nprobes[i];
         double f_time = faiss_time[i];

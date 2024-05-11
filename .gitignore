@@ -4,9 +4,11 @@ index
 release
 debug
 result
-nuswide
 *.npy
 gmon.out
 benchmarks/sift1m
 benchmarks/msong
+benchmarks/glove25
+benchmarks/nuswide
+benchmarks/fasion_mnist_784
 analysis.txt

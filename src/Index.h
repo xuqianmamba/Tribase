@@ -19,7 +19,8 @@ class Index {
           size_t sub_k = 0,
           size_t sub_nlist = 1,
           size_t sub_nprobe = 1,
-          bool verbose = false);
+          bool verbose = false,
+          EdgeDevice edge_device_enabled = EdgeDevice::EDGEDEVIVE_DISABLED);
 
     Index& operator=(Index&& other) noexcept;
 
@@ -38,7 +39,7 @@ class Index {
     // 其他查询方法的声明
 
    private:
-    std::unique_ptr<IVFScanBase> get_scanner(MetricType metric, OptLevel opt_level, size_t k);
+    std::unique_ptr<IVFScanBase> get_scanner(MetricType metric, OptLevel opt_level, size_t k, EdgeDevice edge_device_enabled = EdgeDevice::EDGEDEVIVE_DISABLED);
 
    public:
     size_t d;
@@ -53,6 +54,7 @@ class Index {
     size_t sub_nprobe;
 
     bool verbose;
+    EdgeDevice edge_device_enabled;
 
     std::unique_ptr<IVF[]> lists;
     std::unique_ptr<float[]> centroid_codes;

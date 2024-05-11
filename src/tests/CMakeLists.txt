@@ -15,3 +15,6 @@ target_link_libraries(faiss_test ${GTEST_LIBRARIES} ${GTEST_MAIN_LIBRARIES} pthr
 
 add_executable(index_test index_test.cpp)
 target_link_libraries(index_test ${GTEST_LIBRARIES} ${GTEST_MAIN_LIBRARIES} pthread Tribase faiss)
+
+add_executable(time_test time_test.cpp)
+target_link_libraries(time_test ${GTEST_LIBRARIES} ${GTEST_MAIN_LIBRARIES} pthread Tribase faiss)

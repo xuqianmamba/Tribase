@@ -9,7 +9,7 @@
 TEST(ScanTest, LiteScan) {
     using namespace tribase;
     [[maybe_unused]] int nb = 27134, nq = 1000, d = 420, k = 32;
-    [[maybe_unused]] std::unique_ptr<IVFScanBase> scaner = std::make_unique<IVFScan<MetricType::METRIC_L2, OptLevel::OPT_NONE>>(d, k);
+    [[maybe_unused]] std::unique_ptr<IVFScanBase> scaner = std::make_unique<IVFScan<MetricType::METRIC_L2, OptLevel::OPT_NONE, EdgeDevice::EDGEDEVIVE_DISABLED>>(d, k);
     std::unique_ptr<float[]> codes = std::make_unique<float[]>(nb * d);
     std::unique_ptr<size_t[]> code_ids = std::make_unique<size_t[]>(nb);
     std::unique_ptr<float[]> queries = std::make_unique<float[]>(nq * d);

@@ -16,8 +16,8 @@
 
 namespace tribase {
 
-Index::Index(size_t d, size_t nlist, size_t nprobe, MetricType metric, OptLevel opt_level, size_t sub_k, size_t sub_nlist, size_t sub_nprobe, bool verbose)
-    : d(d), nlist(nlist), nprobe(nprobe), metric(metric), opt_level(opt_level), sub_k(sub_k), sub_nlist(sub_nlist), sub_nprobe(sub_nprobe), verbose(verbose) {
+Index::Index(size_t d, size_t nlist, size_t nprobe, MetricType metric, OptLevel opt_level, size_t sub_k, size_t sub_nlist, size_t sub_nprobe, bool verbose, EdgeDevice edge_device_enabled)
+    : d(d), nlist(nlist), nprobe(nprobe), metric(metric), opt_level(opt_level), sub_k(sub_k), sub_nlist(sub_nlist), sub_nprobe(sub_nprobe), verbose(verbose), edge_device_enabled(edge_device_enabled) {
     lists = std::make_unique<IVF[]>(nlist);
     centroid_codes = std::make_unique<float[]>(nlist * d);
     centroid_ids = std::make_unique<idx_t[]>(nlist);
@@ -35,6 +35,7 @@ Index& Index::operator=(Index&& other) noexcept {
     sub_nlist = other.sub_nlist;
     sub_nprobe = other.sub_nprobe;
     verbose = other.verbose;
+    edge_device_enabled = other.edge_device_enabled;
     lists = std::move(other.lists);
     centroid_codes = std::move(other.centroid_codes);
     centroid_ids = std::move(other.centroid_ids);
@@ -80,46 +81,94 @@ void Index::train(size_t n, const float* codes, bool faiss) {
     }
 }
 
-std::unique_ptr<IVFScanBase> Index::get_scanner(MetricType metric, OptLevel opt_level, size_t k) {
+std::unique_ptr<IVFScanBase> Index::get_scanner(MetricType metric, OptLevel opt_level, size_t k, EdgeDevice edge_device_enabled) {
     if (metric == MetricType::METRIC_L2) {
-        switch (opt_level) {
-            case OptLevel::OPT_NONE:
-                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_NONE>(d, k));
-            case OptLevel::OPT_TRIANGLE:
-                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_TRIANGLE>(d, k));
-            case OptLevel::OPT_SUBNN_L2:
-                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_SUBNN_L2>(d, k));
-            case OptLevel::OPT_SUBNN_IP:
-                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_SUBNN_IP>(d, k));
-            case OptLevel::OPT_TRI_SUBNN_L2:
-                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_TRI_SUBNN_L2>(d, k));
-            case OptLevel::OPT_TRI_SUBNN_IP:
-                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_TRI_SUBNN_IP>(d, k));
-            case OptLevel::OPT_SUBNN_ONLY:
-                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_SUBNN_ONLY>(d, k));
-            case OptLevel::OPT_ALL:
-                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_ALL>(d, k));
-            default:
-                throw std::runtime_error("Unsupported opt_level");
+        if (edge_device_enabled) {
+            switch (opt_level) {
+                case OptLevel::OPT_NONE:
+                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_NONE, EdgeDevice::EDGEDEVIVE_ENABLED>(d, k));
+                case OptLevel::OPT_TRIANGLE:
+                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_TRIANGLE, EdgeDevice::EDGEDEVIVE_ENABLED>(d, k));
+                case OptLevel::OPT_SUBNN_L2:
+                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_SUBNN_L2, EdgeDevice::EDGEDEVIVE_ENABLED>(d, k));
+                case OptLevel::OPT_SUBNN_IP:
+                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_SUBNN_IP, EdgeDevice::EDGEDEVIVE_ENABLED>(d, k));
+                case OptLevel::OPT_TRI_SUBNN_L2:
+                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_TRI_SUBNN_L2, EdgeDevice::EDGEDEVIVE_ENABLED>(d, k));
+                case OptLevel::OPT_TRI_SUBNN_IP:
+                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_TRI_SUBNN_IP, EdgeDevice::EDGEDEVIVE_ENABLED>(d, k));
+                case OptLevel::OPT_SUBNN_ONLY:
+                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_SUBNN_ONLY, EdgeDevice::EDGEDEVIVE_ENABLED>(d, k));
+                case OptLevel::OPT_ALL:
+                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_ALL, EdgeDevice::EDGEDEVIVE_ENABLED>(d, k));
+                default:
+                    throw std::runtime_error("Unsupported opt_level");
+            }
+        } else {
+            switch (opt_level) {
+                case OptLevel::OPT_NONE:
+                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_NONE, EdgeDevice::EDGEDEVIVE_DISABLED>(d, k));
+                case OptLevel::OPT_TRIANGLE:
+                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_TRIANGLE, EdgeDevice::EDGEDEVIVE_DISABLED>(d, k));
+                case OptLevel::OPT_SUBNN_L2:
+                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_SUBNN_L2, EdgeDevice::EDGEDEVIVE_DISABLED>(d, k));
+                case OptLevel::OPT_SUBNN_IP:
+                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_SUBNN_IP, EdgeDevice::EDGEDEVIVE_DISABLED>(d, k));
+                case OptLevel::OPT_TRI_SUBNN_L2:
+                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_TRI_SUBNN_L2, EdgeDevice::EDGEDEVIVE_DISABLED>(d, k));
+                case OptLevel::OPT_TRI_SUBNN_IP:
+                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_TRI_SUBNN_IP, EdgeDevice::EDGEDEVIVE_DISABLED>(d, k));
+                case OptLevel::OPT_SUBNN_ONLY:
+                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_SUBNN_ONLY, EdgeDevice::EDGEDEVIVE_DISABLED>(d, k));
+                case OptLevel::OPT_ALL:
+                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_L2, OptLevel::OPT_ALL, EdgeDevice::EDGEDEVIVE_DISABLED>(d, k));
+                default:
+                    throw std::runtime_error("Unsupported opt_level");
+            }
         }
     } else {
-        switch (opt_level) {
-            case OptLevel::OPT_NONE:
-                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_NONE>(d, k));
-            case OptLevel::OPT_TRIANGLE:
-                return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_TRIANGLE>(d, k));
-            // case OptLevel::OPT_SUBNN_L2:
-            //     return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_SUBNN_L2>(d, k));
-            // case OptLevel::OPT_SUBNN_IP:
-            //     return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_SUBNN_IP>(d, k));
-            // case OptLevel::OPT_TRI_SUBNN_L2:
-            //     return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_TRI_SUBNN_L2>(d, k));
-            // case OptLevel::OPT_TRI_SUBNN_IP:
-            //     return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_TRI_SUBNN_IP>(d, k));
-            // case OptLevel::OPT_ALL:
-            //     return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_ALL>(d, k));
-            default:
-                throw std::runtime_error("Unsupported opt_level");
+        if (edge_device_enabled) {
+            switch (opt_level) {
+                case OptLevel::OPT_NONE:
+                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_NONE, EdgeDevice::EDGEDEVIVE_ENABLED>(d, k));
+                case OptLevel::OPT_TRIANGLE:
+                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_TRIANGLE, EdgeDevice::EDGEDEVIVE_ENABLED>(d, k));
+                // case OptLevel::OPT_SUBNN_L2:
+                //     return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_SUBNN_L2, EdgeDevice::EDGEDEVIVE_ENABLED>(d, k));
+                // case OptLevel::OPT_SUBNN_IP:
+                //     return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_SUBNN_IP, EdgeDevice::EDGEDEVIVE_ENABLED>(d, k));
+                // case OptLevel::OPT_TRI_SUBNN_L2:
+                //     return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_TRI_SUBNN_L2, EdgeDevice::EDGEDEVIVE_ENABLED>(d, k));
+                // case OptLevel::OPT_TRI_SUBNN_IP:
+                //     return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_TRI_SUBNN_IP, EdgeDevice::EDGEDEVIVE_ENABLED>(d, k));
+                // case OptLevel::OPT_SUBNN_ONLY:
+                //     return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_SUBNN_ONLY, EdgeDevice::EDGEDEVIVE_ENABLED>(d, k));
+                // case OptLevel::OPT_ALL:
+                //     return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_ALL, EdgeDevice::EDGEDEVIVE_ENABLED>(d, k));
+                default:
+                    throw std::runtime_error("Unsupported opt_level");
+            }
+        } else {
+            switch (opt_level) {
+                case OptLevel::OPT_NONE:
+                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_NONE, EdgeDevice::EDGEDEVIVE_DISABLED>(d, k));
+                case OptLevel::OPT_TRIANGLE:
+                    return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_TRIANGLE, EdgeDevice::EDGEDEVIVE_DISABLED>(d, k));
+                // case OptLevel::OPT_SUBNN_L2:
+                //     return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_SUBNN_L2, EdgeDevice::EDGEDEVIVE_DISABLED>(d, k));
+                // case OptLevel::OPT_SUBNN_IP:
+                //     return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_SUBNN_IP, EdgeDevice::EDGEDEVIVE_DISABLED>(d, k));
+                // case OptLevel::OPT_TRI_SUBNN_L2:
+                //     return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_TRI_SUBNN_L2, EdgeDevice::EDGEDEVIVE_DISABLED>(d, k));
+                // case OptLevel::OPT_TRI_SUBNN_IP:
+                //     return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_TRI_SUBNN_IP, EdgeDevice::EDGEDEVIVE_DISABLED>(d, k));
+                // case OptLevel::OPT_SUBNN_ONLY:
+                //     return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_SUBNN_ONLY, EdgeDevice::EDGEDEVIVE_DISABLED>(d, k));
+                // case OptLevel::OPT_ALL:
+                //     return std::unique_ptr<IVFScanBase>(new IVFScan<MetricType::METRIC_IP, OptLevel::OPT_ALL, EdgeDevice::EDGEDEVIVE_DISABLED>(d, k));
+                default:
+                    throw std::runtime_error("Unsupported opt_level");
+            }
         }
     }
 };

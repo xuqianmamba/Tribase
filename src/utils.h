@@ -235,6 +235,16 @@ inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, s
     return distance;
 }
 #endif
+
+__attribute__((optimize("O0"))) inline float calculatedEuclideanDistance0(const float* vec1, const float* vec2, size_t size) {
+    float distance = 0.0;
+    for (size_t i = 0; i < size; ++i) {
+        float diff = vec1[i] - vec2[i];
+        distance += diff * diff;
+    }
+    return distance;
+}
+
 // V5
 
 // inline float calculatedEuclideanDistance(const float* x, const float* y, size_t d) {
@@ -400,7 +410,28 @@ inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, s
 //  float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size);
 
 // Calculates the inner product between two vectors
+
+#ifdef DEBUG
+__attribute__((optimize("O0"))) inline float calculatedInnerProduct(const float* vec1, const float* vec2, size_t size) {
+    // return cblas_sdot(size, vec1, 1, vec2, 1);
+    float sum = 0.0;
+    for (size_t i = 0; i < size; ++i) {
+        sum += vec1[i] * vec2[i];
+    }
+    return sum;
+}
+#else
 inline float calculatedInnerProduct(const float* vec1, const float* vec2, size_t size) {
+    // return cblas_sdot(size, vec1, 1, vec2, 1);
+    float sum = 0.0;
+    for (size_t i = 0; i < size; ++i) {
+        sum += vec1[i] * vec2[i];
+    }
+    return sum;
+}
+#endif
+
+__attribute__((optimize("O0"))) inline float calculatedInnerProduct0(const float* vec1, const float* vec2, size_t size) {
     // return cblas_sdot(size, vec1, 1, vec2, 1);
     float sum = 0.0;
     for (size_t i = 0; i < size; ++i) {
