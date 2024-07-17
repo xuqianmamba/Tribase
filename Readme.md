@@ -79,11 +79,16 @@ We only measure pruning rates in debug or standard mode, so if you need performa
 
 We have prepared a fully functional script named `query` for conducting benchmark tests and other tasks. Next, we will demonstrate how to replicate our experimental results.
 
+#### Faiss Baseline
+
 As a baseline and to generate ground truth, we use faiss-ivfflat. You may execute run_faiss once to obtain baseline values.
 
 ```bash
-./release/bin/query --benchmarks_path ./benchmarks --dataset nuswide --nprobes 50 100 300 1000 --run_faiss --verbose
+./release/bin/query --benchmarks_path ./benchmarks --dataset nuswide \
+  --nprobes 50 100 300 1000 --run_faiss --verbose
 ```
+
+#### Tribase Index Generation
 
 Subsequently, you can run our Tribase algorithm, which supports various combinations of three strategies. You can specify these by using the `--opt_levels` parameter, separating multiple strategies with spaces. During training, we will use the union of these strategies and individually test the query performance of each.
 
@@ -101,24 +106,41 @@ You can generate a Tribase index that supports various strategies with the follo
 
 ```bash
 ./release/bin/query --benchmarks_path ./benchmarks --dataset nuswide \
-  --opt_levels OPT_ALL --sub_nprobe_ratio 1 --train_only --verbose
+  --opt_levels OPT_ALL --sub_nprobe_ratio 0.3 --train_only --verbose
 ```
+
+#### Tribase Query Performance
 
 Next, you can test the query performance of the Tribase index with the following command, `--cache` is used to use the cached index, and `--loop` is used to specify the number of loops for each query.
 
 ```bash
 ./release/bin/query --benchmarks_path ./benchmarks --dataset nuswide \
-  --opt_levels OPT_TRIANGLE OPT_TRI_SUBNN_L2 OPT_TRI_SUBNN_IP OPT_ALL --nprobes 50 100 300 1000 --cache --loop 3 --verbose
+  --opt_levels OPT_TRIANGLE OPT_TRI_SUBNN_L2 OPT_TRI_SUBNN_IP OPT_ALL \
+  --nprobes 50 100 300 1000 --cache --loop 3 --verbose
 ```
 
 To obtain accurate pruning rates, it is necessary to introduce some atomic operations, which may result in a decrease in performance. You can run the following command in standard mode to output this information:
 
 ```bash
 ./build/bin/query --benchmarks_path ./benchmarks --dataset nuswide \
-  --opt_levels OPT_TRIANGLE OPT_TRI_SUBNN_L2 OPT_TRI_SUBNN_IP OPT_ALL --nprobes 50 100 300 1000 --cache --verbose
+  --opt_levels OPT_TRIANGLE OPT_TRI_SUBNN_L2 OPT_TRI_SUBNN_IP OPT_ALL \
+  --nprobes 50 100 300 1000 --cache --verbose
 ```
 
 After running the above commands, you can check the results in `benchmarks/nuswide/result/log.csv`.
+
+#### Average Distance Ratio
+
+r2 (or Average Distance Ratio in paper) is a metric that measures the average distance ratio between the query result and the ground truth. By adjusting the `--ratios` parameter, you can obtain the r2 results for different search pruning ratios.
+
+```bash
+./build/bin/query --benchmarks_path ./benchmarks --dataset nuswide \
+  --opt_levels OPT_TRIANGLE OPT_TRI_SUBNN_L2 OPT_TRI_SUBNN_IP OPT_ALL \
+  --nprobes 50 100 300 1000 --ratios 1.0 0.95 0.9 0.85 0.8 0.75 0.7 \
+  --cache --verbose
+```
+
+#### Further Usage
 
 Finally, you can use the following command to get a more comprehensive usage guide for this script:
 
@@ -150,9 +172,9 @@ Optional arguments:
   --dataset-info      only output dataset-info to csv file
 ```
 
-## Further Usage
+## Usage in Your Own Project
 
-You can use the Tribase index in your own project by including the `tribase.h` header file and linking the `tribase` library. The following is a tiny example of how to use the Tribase index in your project.
+You can use the Tribase index in your own project by including the `src/tribase.h` header file and linking the `tribase` library. The following is a tiny example of how to use the Tribase index in your project.
 
 ```cpp
 #include "tribase.h"
@@ -177,3 +199,7 @@ int main(){
     return 0;
 }
 ```
+
+## License
+
+This project is licensed under the MIT License.
