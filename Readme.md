@@ -40,6 +40,18 @@ Our server setup includes two Intel Xeon Gold 5318Y CPUs, each with 24 cores and
 
 We also provide a dockerfile based on Ubuntu22.04 with all the dependencies installed.
 
+## Quick Start
+
+```bash
+docker build -t tribase .
+docker run -it tribase
+./release/bin/query --benchmarks_path ./benchmarks --dataset nuswide \
+  --nprobes 50 100 300 1000 --run_faiss --verbose
+./release/bin/query --benchmarks_path ./benchmarks --dataset nuswide \
+  --opt_levels OPT_TRIANGLE OPT_TRI_SUBNN_L2 OPT_TRI_SUBNN_IP OPT_ALL \
+  --nprobes 50 100 300 1000 --cache --loop 3 --verbose
+```
+
 ## How to Run
 
 ### Docker
@@ -182,8 +194,8 @@ You can use the Tribase index in your own project by including the `src/tribase.
 #include <memory>
 
 int main(){
-    auto [base, nb, d] = tribase::loadFvecs(base_path);
-    auto [query, nq, _] = tribase::loadFvecs(query_path);
+    auto [base, nb, d] = tribase::loadFvecs("base.fvecs");
+    auto [query, nq, _] = tribase::loadFvecs("query.fvecs");
     int nlist = sqrt(nb);
     int nprobe = std::max(1, nlist / 10);
     tribase::Index index;
