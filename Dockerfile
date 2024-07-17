@@ -52,16 +52,19 @@ COPY . /app/tribase
 
 WORKDIR /app/tribase
 
+# parallel build tribase
 RUN cmake -B release -DCMAKE_BUILD_TYPE=Release . && \
-    cmake --build release -j && \
     cmake -B build . && \
-    cmake --build build -j
+    cmake --build release -j & \
+    cmake --build build -j & \
+    wait
 
 # install python3
 RUN apt install -y \
     python3 \
     python3-pip \
-    python3-venv
+    python3-venv \
+    swig
 
 # setup python3 environment, install gdown
 RUN python3 -m venv venv && \
@@ -79,6 +82,14 @@ RUN source venv/bin/activate && \
 #     gdown https://drive.google.com/file/d/1BcTuT4su77_Ue6Wi8EU340HSYoJeHwnD/view?usp=sharing --fuzzy --output benchmarks/ && \
 #     unzip benchmarks/sift1m.zip -d benchmarks/sift1m && \
 #     rm benchmarks/sift1m.zip
+
+RUN source venv/bin/activate && \
+    cd trifaiss && \
+    pip3 install -r requirements.txt && \
+    cmake -B build -DCMAKE_BUILD_TYPE=Release . && \
+    make -j -C build swigfaiss && \
+    cd build/faiss/python && \
+    python3 setup.py install
 
 # clean
 RUN apt autoremove -y && \

@@ -212,6 +212,69 @@ int main(){
 }
 ```
 
+## trifaiss
+
+We also provide a modified version of faiss that supports the triangle inequality pruning strategy. You can find the source code in the `trifaiss` folder. 
+
+We still highly recommend using the provided Dockerfile to build the project, after entering the docker container, you can simply run the following commands:
+
+```bash
+source venv/bin/activate
+cd trifaiss
+python run.py
+```
+
+### Build
+
+To build the trifaiss, you should install the following dependencies in addition to the ones mentioned above:
+
+- swig = 4.2.0
+- python packages: setuptools, numpy, pandas, tqdm
+
+Then, you can build the trifaiss library with the following commands:
+
+```bash
+source venv/bin/activate
+cd trifaiss
+cmake -B build -DCMAKE_BUILD_TYPE=Release .
+make -j -C build swigfaiss
+python setup.py install
+```
+
+### Run
+
+You can simply use `run.py` script to test our trifaiss.
+
+You can modify the parameters in `main` function, most of the parameters are the same as the `query` script in Tribase.
+
+```bash
+source venv/bin/activate
+cd trifaiss
+python run.py
+```
+
+### Simple Usage
+
+```python
+import faiss # trifaiss version
+import numpy as np
+
+xb = load_vecs(base_path)
+xq = load_vecs(query_path)
+n = xb.shape[0]
+d = xb.shape[1]
+nlist = int(np.sqrt(n))
+quantizer = faiss.IndexFlatL2(d)
+index = faiss.IndexIVFwithDistance(
+    quantizer, d, nlist, faiss.METRIC_L2
+)
+index.train(xb)
+index.add(xb)
+index.nprobe = nlist // 10
+k = 100
+distances, labels = index.search(xq, k)
+```
+
 ## License
 
 This project is licensed under the MIT License.
