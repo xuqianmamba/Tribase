@@ -115,6 +115,7 @@ class Stats {
                            nprobe, static_cast<int>(opt_level), simi_ratio, skip_triangle_count, skip_triangle_large_count,
                            skip_subnn_L2_count, skip_subnn_IP_count, simi_update_rate, check_subnn_L2,
                            check_subnn_IP, time_speedup, pruning_speedup, query_time, recall, r2);
+        ofs.flush();
     }
 };
 

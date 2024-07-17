@@ -28,19 +28,18 @@ int main(int argc, char* argv[]) {
     program.add_argument("--output_format").help("format of the output").default_value(std::string("bin"));
     program.add_argument("--k").help("number of nearest neighbors").default_value(100ul).action([](const std::string& value) -> size_t { return std::stoul(value); });
     program.add_argument("--nprobes").default_value(std::vector<size_t>({0ul})).nargs(0, 100).help("number of clusters to search").scan<'u', size_t>();
-    program.add_argument("--opt_levels").default_value(std::vector<std::string>({"OPT_NONE", "OPT_TRIANGLE", "OPT_TRI_SUBNN_L2", "OPT_TRI_SUBNN_IP", "OPT_ALL"})).nargs(0, 10).help("optimization levels");
-    // program.add_argument("--opt_levels").default_value(std::vector<std::string>({"OPT_TRI_SUBNN_L2"})).nargs(0, 10).help("optimization levels");
+    program.add_argument("--opt_levels").default_value(std::vector<std::string>({"OPT_NONE", "OPT_TRIANGLE", "OPT_SUBNN_L2", "OPT_SUBNN_IP", "OPT_TRI_SUBNN_L2", "OPT_TRI_SUBNN_IP", "OPT_ALL"})).nargs(0, 10).help("optimization levels");
     program.add_argument("--train_only").default_value(false).implicit_value(true).help("train only");
     program.add_argument("--cache").default_value(false).implicit_value(true).help("use cached index");
-    program.add_argument("--sub_nprobe_ratio").default_value(1.0f).action([](const std::string& value) -> float { return std::stof(value); });
+    program.add_argument("--sub_nprobe_ratio").default_value(1.0f).help("ratio of the number of subNNs to the number of clusters").action([](const std::string& value) -> float { return std::stof(value); });
     program.add_argument("--metric").default_value("l2").help("metric type");
     program.add_argument("--run_faiss").default_value(false).implicit_value(true).help("run faiss");
     program.add_argument("--loop").default_value(1ul).action([](const std::string& value) -> size_t { return std::stoul(value); });
     program.add_argument("--nlist").default_value(0ul).action([](const std::string& value) -> size_t { return std::stoul(value); });
     program.add_argument("--verbose").default_value(false).implicit_value(true).help("verbose");
-    // program.add_argument("--mini").default_value(false).implicit_value(true).help("1/100 datasets");
-    program.add_argument("--ratios").default_value(std::vector<float>({1.0f})).nargs(0, 100).help("ratio of the number of subNNs to the number of clusters").scan<'f', float>();
-    // program.add_argument("--ratio").default_value(1.0f).action([](const std::string& value) -> float { return std::stof(value); });
+    program.add_argument("--ratios").default_value(std::vector<float>({1.0f})).nargs(0, 100).help("search ratio").scan<'f', float>();
+    program.add_argument("--csv").help("csv result file").default_value(std::string(""));
+    program.add_argument("--dataset-info").help("only output dataset-info to csv file").default_value(false).implicit_value(true);
 
     try {
         program.parse_args(argc, argv);
@@ -88,11 +87,35 @@ int main(int argc, char* argv[]) {
     std::string base_path = std::format("{}/{}/origin/{}_base.{}", benchmarks_path, dataset, dataset, input_format);
     std::string query_path = std::format("{}/{}/origin/{}_query.{}", benchmarks_path, dataset, dataset, input_format);
     std::string groundtruth_path = std::format("{}/{}/result/groundtruth_{}.{}", benchmarks_path, dataset, k, output_format);
-    std::string log_path = std::format("{}/{}/result/log.csv", benchmarks_path, dataset);
+    std::string log_path;
+    std::string tmp_csv_path = program.get<std::string>("csv");
+    if (tmp_csv_path.length()) {
+        log_path = tmp_csv_path;
+    } else {
+        log_path = std::format("{}/{}/result/log.csv", benchmarks_path, dataset);
+    }
+
+    // if (run_faiss && train_only) {
+    //     throw std::invalid_argument("run_faiss && train_only is not allowed, run_faiss will not train at all.");
+    // }
 
     size_t nb, d;
     std::unique_ptr<float[]> base = nullptr;
     std::tie(nb, d) = loadFvecsInfo(base_path);
+
+    if (program.get<bool>("dataset-info")) {
+        auto [nq, _] = loadFvecsInfo(query_path);
+        std::ofstream ofs;
+        ofs.open(tmp_csv_path.data());
+        if (!ofs.is_open()) {
+            std::cerr << "Failed to open file: " << tmp_csv_path << std::endl;
+            return 0;
+        }
+        ofs << "nb, nq, d" << std::endl;
+        ofs << std::format("{}, {}, {}", nb, nq, d) << std::endl;
+        return 0;
+    }
+
     if (nlist == 0) {
         nlist = static_cast<size_t>(std::sqrt(nb));
     }
@@ -136,41 +159,12 @@ int main(int argc, char* argv[]) {
     std::string faiss_index_path = get_faiss_index_path();
     prepareDirectory(faiss_index_path);
 
-    Index index;
-
-    if (std::filesystem::exists(index_path) && cache) {
-        if (verbose) {
-            std::cout << std::format("Loading index from {}", index_path) << std::endl;
-        }
-        index.load_index(index_path);
-        if (verbose) {
-            std::cout << std::format("Index loaded") << std::endl;
-        }
-    } else {
-        std::tie(base, nb, d) = loadFvecs(base_path);
-        nlist = static_cast<size_t>(std::sqrt(nb));
-        index = Index(d, nlist, 0, metric, added_opt_levels, 15, sub_nlist, sub_nprobe, verbose);
-        index.train(nb, base.get());
-        index.add(nb, base.get());
-        if (verbose) {
-            std::cout << std::format("Index trained") << std::endl;
-        }
-        index.save_index(index_path);
-        if (verbose) {
-            std::cout << std::format("Index saved to {}", index_path) << std::endl;
-        }
-    }
-
-    if (train_only) {
-        return 0;
-    }
-
     auto [query, nq, _] = loadFvecs(query_path);
 
     std::unique_ptr<idx_t[]> ground_truth_I = std::make_unique<idx_t[]>(k * nq);
     std::unique_ptr<float[]> ground_truth_D = std::make_unique<float[]>(k * nq);
 
-    std::string faiss_time_path = std::format("{}/{}/result/faiss_result.txt", benchmarks_path, dataset);
+    std::string faiss_time_path = std::format("{}/{}/result/faiss_result_nlist_{}.txt", benchmarks_path, dataset, nlist);
     std::vector<double> faiss_time(nprobes.size(), 0.0);
     std::ifstream faiss_time_input(faiss_time_path);
     if (faiss_time_input.is_open()) {
@@ -188,28 +182,43 @@ int main(int argc, char* argv[]) {
     faiss::IndexFlatL2 quantizer(d);
     std::unique_ptr<faiss::IndexIVFFlat> index_faiss = std::make_unique<faiss::IndexIVFFlat>(&quantizer, d, nlist);
 
-    if (!std::filesystem::exists(groundtruth_path)) {
-        double faiss_groundtruth_time = 0.0;
-        if (verbose) {
-            std::cout << std::format("Groundtruth file {} does not exist", groundtruth_path) << std::endl;
-        }
-
+    auto train_load_faiss = [&]() {
         if (!std::filesystem::exists(faiss_index_path)) {
+            Stopwatch warch_faiss;
             if (verbose) {
                 std::cout << std::format("Training Faiss index") << std::endl;
             }
             if (base == nullptr) {
                 std::tie(base, nb, d) = loadFvecs(base_path);
             }
+            warch_faiss.reset();
             index_faiss->train(nb, base.get());
             if (verbose) {
+                double faiss_train_elapsed = warch_faiss.elapsedSeconds(true);
+                std::cout << std::format("train: {:.2f}s", faiss_train_elapsed) << std::endl;
                 std::cout << std::format("Adding vectors to Faiss index") << std::endl;
             }
             index_faiss->add(nb, base.get());
-            ::faiss::write_index(index_faiss.get(), faiss_index_path.c_str());
+            if (verbose) {
+                double faiss_add_elapsed = warch_faiss.elapsedSeconds(true);
+                std::cout << std::format("add: {:.2f}s", faiss_add_elapsed) << std::endl;
+            }
+            faiss::write_index(index_faiss.get(), faiss_index_path.c_str());
         } else {
-            index_faiss.reset(dynamic_cast<faiss::IndexIVFFlat*>(::faiss::read_index(faiss_index_path.c_str())));
+            if (verbose) {
+                std::cout << std::format("Load faiss index from {}", faiss_index_path) << std::endl;
+            }
+            index_faiss.reset(dynamic_cast<faiss::IndexIVFFlat*>(faiss::read_index(faiss_index_path.c_str())));
         }
+    };
+
+    if (!std::filesystem::exists(groundtruth_path)) {
+        double faiss_groundtruth_time = 0.0;
+        if (verbose) {
+            std::cout << std::format("Groundtruth file {} does not exist", groundtruth_path) << std::endl;
+        }
+
+        train_load_faiss();
 
         if (verbose) {
             std::cout << std::format("Searching Faiss index") << std::endl;
@@ -244,24 +253,16 @@ int main(int argc, char* argv[]) {
             std::cout << std::format("Running Faiss") << std::endl;
         }
         if (!index_faiss->is_trained) {
-            if (!std::filesystem::exists(faiss_index_path)) {
-                if (verbose) {
-                    std::cout << std::format("Training Faiss index") << std::endl;
-                }
-                if (base == nullptr) {
-                    std::tie(base, nb, d) = loadFvecs(base_path);
-                }
-                index_faiss->train(nb, base.get());
-                if (verbose) {
-                    std::cout << std::format("Adding vectors to Faiss index") << std::endl;
-                }
-                index_faiss->add(nb, base.get());
-                ::faiss::write_index(index_faiss.get(), faiss_index_path.c_str());
-            } else {
-                index_faiss.reset(dynamic_cast<faiss::IndexIVFFlat*>(::faiss::read_index(faiss_index_path.c_str())));
-            }
+            train_load_faiss();
         }
         std::ofstream faiss_time_output(faiss_time_path);
+        if (!faiss_time_output.is_open()) {
+            std::cerr << std::format("Fail to open {}\n", faiss_time_path);
+        } else {
+            if (verbose) {
+                std::cout << std::format("Output faiss time to {}\n", faiss_time_path);
+            }
+        }
         std::unique_ptr<float[]> tmp_faiss_dis = std::make_unique<float[]>(k * nq);
         std::unique_ptr<idx_t[]> tmp_faiss_labels = std::make_unique<idx_t[]>(k * nq);
         for (size_t i = 0; i < nprobes.size(); i++) {
@@ -277,12 +278,41 @@ int main(int argc, char* argv[]) {
             float r2 = calculate_r2(tmp_faiss_labels.get(), tmp_faiss_dis.get(), ground_truth_I.get(), ground_truth_D.get(), nq, k, metric);
             faiss_time[i] = stopwatch.elapsedSeconds() / loop;
             std::cout << std::format("Faiss nprobe: {} time: {} recall: {} r2: {}", nprobes[i], faiss_time[i], recall, r2) << std::endl;
-            faiss_time_output << std::format("{} {} {} {}\n", nprobes[i], faiss_time[i], recall, r2);
+            faiss_time_output << std::format("{} {} {} {}", nprobes[i], faiss_time[i], recall, r2) << std::endl;
+            faiss_time_output.flush();
         }
         return 0;
     }
 
-    index.edge_device_enabled = EdgeDevice::EDGEDEVIVE_ENABLED;
+    Index index;
+
+    if (std::filesystem::exists(index_path) && cache) {
+        if (verbose) {
+            std::cout << std::format("Loading index from {}", index_path) << std::endl;
+        }
+        index.load_index(index_path);
+        if (verbose) {
+            std::cout << std::format("Index loaded") << std::endl;
+        }
+    } else {
+        std::tie(base, nb, d) = loadFvecs(base_path);
+        nlist = static_cast<size_t>(std::sqrt(nb));
+        index = Index(d, nlist, 0, metric, added_opt_levels, OPT_ALL, sub_nlist, sub_nprobe, verbose);
+        index.train(nb, base.get());
+        index.add(nb, base.get());
+        if (verbose) {
+            std::cout << std::format("Index trained") << std::endl;
+        }
+        index.save_index(index_path);
+        if (verbose) {
+            std::cout << std::format("Index saved to {}", index_path) << std::endl;
+        }
+    }
+
+    if (train_only) {
+        return 0;
+    }
+
     for (size_t i = 0; i < nprobes.size(); i++) {
         size_t nprobe = nprobes[i];
         double f_time = faiss_time[i];
@@ -314,15 +344,6 @@ int main(int argc, char* argv[]) {
                 stats.r2 = r2;
                 stats.print();
                 stats.toCsv(log_path, true);
-                // writeResultsToFile(labels.get(), distances.get(), nq, k, output_path);
-                // std::ofstream output("truth.bin", std::ios::binary);
-                // output.write(reinterpret_cast<const char*>(&nq), 4);
-                // output.write(reinterpret_cast<const char*>(&k), 4);
-                // for (size_t i = 0; i < nq; i++) {
-                //     for (size_t j = 0; j < k; j++) {
-                //         output.write(reinterpret_cast<const char*>(&ground_truth_I[i * k + j]), 4);
-                //     }
-                // }
             }
         }
     }

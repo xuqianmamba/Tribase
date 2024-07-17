@@ -5,7 +5,7 @@
 // #define CORRECTNESS_CHECK
 #endif
 
-#ifdef DEBUG
+#ifndef NSTATS
 #define IF_STATS if (stats)
 #else
 #define IF_STATS if (false)

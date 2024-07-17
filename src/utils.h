@@ -3,11 +3,11 @@
 #include <mkl.h>
 // #include <mkl_cblas.h>
 #include <immintrin.h>  // 包含AVX2和其他SIMD指令集的头文件
-#include <Eigen/Dense>
-#include <algorithm>  // 包含std::fill_n
+#include <algorithm>    // 包含std::fill_n
 #include <cassert>
 #include <chrono>
 #include <cmath>
+#include <eigen3/Eigen/Dense>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
