@@ -3,6 +3,7 @@ build
 index
 release
 debug
+profiling
 result
 *.npy
 gmon.out
@@ -11,4 +12,7 @@ benchmarks/msong
 benchmarks/glove25
 benchmarks/nuswide
 benchmarks/fasion_mnist_784
+benchmarks/sift1b
 analysis.txt
+*.log
+*workspace

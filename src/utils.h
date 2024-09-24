@@ -129,6 +129,36 @@ inline std::tuple<std::unique_ptr<uint8_t[]>, size_t, int> loadBvecs(const std::
     return std::make_tuple(std::move(vectors), n, d);
 }
 
+inline std::tuple<std::unique_ptr<float[]>, size_t, int> loadBvecs2Fvecs(const std::string& filePath, std::pair<int, int> bounds = {1, 0}) {
+    auto [vectors, n, d] = loadBvecs(filePath, bounds);
+    std::unique_ptr<float[]> vectors2 = std::make_unique<float[]>(n * d);
+#pragma omp parallel for
+    for (size_t i = 0; i < n; i++) {
+        for (size_t j = 0; j < d; j++) {
+            vectors2[i * d + j] = static_cast<float>(vectors[i * d + j]);
+        }
+    }
+    return std::make_tuple(std::move(vectors2), n, d);
+}
+
+inline std::pair<size_t, int> loadXvecsInfo(const std::string& filePath) {
+    if (filePath.ends_with(".fvecs")) {
+        return loadFvecsInfo(filePath);
+    } else if (filePath.ends_with(".bvecs")) {
+        return loadBvecsInfo(filePath);
+    }
+    throw std::runtime_error("no support file");
+}
+
+inline std::tuple<std::unique_ptr<float[]>, size_t, int> loadXvecs(const std::string& filePath, std::pair<int, int> bounds = {1, 0}) {
+    if (filePath.ends_with(".fvecs")) {
+        return loadFvecs(filePath, bounds);
+    } else if (filePath.ends_with(".bvecs")) {
+        return loadBvecs2Fvecs(filePath, bounds);
+    }
+    throw std::runtime_error("no support file");
+}
+
 // A class for measuring execution time
 class Stopwatch {
    public:
@@ -564,7 +594,7 @@ inline float calculate_recall(const idx_t* I, const float* D, const idx_t* GT, c
         for (size_t i = 0; i < nq; ++i) {
             float topK = std::numeric_limits<float>::max();
             size_t ii = k - 1;
-            while (GD[i * gt_k + ii] == -1) {
+            while (GT[i * gt_k + ii] == -1) {
                 ii--;
             }
             topK = GD[i * gt_k + ii];
@@ -584,7 +614,7 @@ inline float calculate_recall(const idx_t* I, const float* D, const idx_t* GT, c
         for (size_t i = 0; i < nq; ++i) {
             float topK = std::numeric_limits<float>::lowest();
             size_t ii = k - 1;
-            while (GD[i * gt_k + ii] == -1) {
+            while (GT[i * gt_k + ii] == -1) {
                 ii--;
             }
             topK = GD[i * gt_k + ii];
@@ -601,7 +631,7 @@ inline float calculate_recall(const idx_t* I, const float* D, const idx_t* GT, c
             }
         }
     }
-    // assert(1.0 * true_correct / correct > 0.99);
+    assert(1.0 * true_correct / correct > 0.99);
     return static_cast<float>(correct) / (nq * k);
 }
 

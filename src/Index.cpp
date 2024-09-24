@@ -13,6 +13,7 @@
 #define SUB_LIST_SIZE 8ul
 #define IP_SUB_RATIO 1.5
 #define RECALL_TEST_RATIO 0.1
+// #define SUB_STATS
 
 namespace tribase {
 
@@ -364,7 +365,8 @@ void Index::add(size_t n, const float* codes) {
 #pragma omp atomic
                 search_elapsed += watch.elapsedSeconds(true);
 
-                if (true) {
+#ifdef SUB_STATS
+                if (verbose) {
                     size_t recall_nb = static_cast<size_t>(1.0 * nb * RECALL_TEST_RATIO / sub_nlist * sub_nprobe);
                     std::unique_ptr<float[]> recall_dis = std::make_unique<float[]>(recall_nb * sub_k);
                     std::unique_ptr<idx_t[]> recall_id = std::make_unique<idx_t[]>(recall_nb * sub_k);
@@ -387,6 +389,7 @@ void Index::add(size_t n, const float* codes) {
                     total_sub_count_l2 += recall_nb * sub_k;
                     total_sub_count_l2_5 += recall_nb * std::min(5ul, sub_k);
                 }
+#endif
 
                 for (size_t j = 0; j < nb * sub_k; j++) {
                     list.sub_nearest_L2_dis[j] = sqrt(list.sub_nearest_L2_dis[j]);
@@ -411,7 +414,7 @@ void Index::add(size_t n, const float* codes) {
                         }
                     }
                 }
-                Index sub_index(d, this_sub_nlist_IP, this_sub_nprobe_IP, MetricType::METRIC_IP, OptLevel::OPT_NONE, 0, 0, 0, false);
+                Index sub_index(d, this_sub_nlist_IP, this_sub_nprobe_IP, MetricType::METRIC_IP, OptLevel::OPT_NONE, 0, 0, 0, false); // TODO: this_sub_nlist_L2 or this_sub_nlist_IP
                 Stopwatch watch;
                 sub_index.train(nb, norm_xb);
 #pragma omp atomic
@@ -435,7 +438,8 @@ void Index::add(size_t n, const float* codes) {
                     list.sub_farest_IP_dis[j] = -list.sub_farest_IP_dis[j];
                 }
 
-                if (true) {
+#ifdef SUB_STATS
+                if (verbose) {
                     size_t recall_nb = static_cast<size_t>(1.0 * nb * RECALL_TEST_RATIO / sub_nlist * sub_nprobe);
                     std::unique_ptr<float[]> recall_dis = std::make_unique<float[]>(recall_nb * sub_k);
                     std::unique_ptr<idx_t[]> recall_id = std::make_unique<idx_t[]>(recall_nb * sub_k);
@@ -458,6 +462,7 @@ void Index::add(size_t n, const float* codes) {
                     total_sub_count_ip += recall_nb * sub_k;
                     total_sub_count_ip_5 += recall_nb * std::min(5ul, sub_k);
                 }
+#endif
             }
 
 #pragma omp critical
@@ -584,7 +589,6 @@ void Index::single_thread_search(size_t n, const float* queries, size_t k, float
                     stats->skip_triangle_count += scan_begin + list_size - scan_end;
                     stats->total_count += list_size;
                 }
-#pragma omp critical
                 scaner->scan_codes(scan_begin, scan_end, list_size, list.get_candidate_codes(), list.get_candidate_id(), simi, idxi);
             }
         }

@@ -101,10 +101,10 @@ int main(int argc, char* argv[]) {
 
     size_t nb, d;
     std::unique_ptr<float[]> base = nullptr;
-    std::tie(nb, d) = loadFvecsInfo(base_path);
+    std::tie(nb, d) = loadXvecsInfo(base_path);
 
     if (program.get<bool>("dataset-info")) {
-        auto [nq, _] = loadFvecsInfo(query_path);
+        auto [nq, _] = loadXvecsInfo(query_path);
         std::ofstream ofs;
         ofs.open(tmp_csv_path.data());
         if (!ofs.is_open()) {
@@ -159,7 +159,7 @@ int main(int argc, char* argv[]) {
     std::string faiss_index_path = get_faiss_index_path();
     prepareDirectory(faiss_index_path);
 
-    auto [query, nq, _] = loadFvecs(query_path);
+    auto [query, nq, _] = loadXvecs(query_path);
 
     std::unique_ptr<idx_t[]> ground_truth_I = std::make_unique<idx_t[]>(k * nq);
     std::unique_ptr<float[]> ground_truth_D = std::make_unique<float[]>(k * nq);
@@ -189,7 +189,7 @@ int main(int argc, char* argv[]) {
                 std::cout << std::format("Training Faiss index") << std::endl;
             }
             if (base == nullptr) {
-                std::tie(base, nb, d) = loadFvecs(base_path);
+                std::tie(base, nb, d) = loadXvecs(base_path);
             }
             warch_faiss.reset();
             index_faiss->train(nb, base.get());
@@ -295,7 +295,7 @@ int main(int argc, char* argv[]) {
             std::cout << std::format("Index loaded") << std::endl;
         }
     } else {
-        std::tie(base, nb, d) = loadFvecs(base_path);
+        std::tie(base, nb, d) = loadXvecs(base_path);
         nlist = static_cast<size_t>(std::sqrt(nb));
         index = Index(d, nlist, 0, metric, added_opt_levels, OPT_ALL, sub_nlist, sub_nprobe, verbose);
         index.train(nb, base.get());
