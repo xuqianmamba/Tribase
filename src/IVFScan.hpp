@@ -4,6 +4,12 @@
 #include "stats.h"
 #include "utils.h"
 
+#define MANUAL_SIMD
+
+#ifndef MANUAL_SIMD
+#include "hnswlib/hnswlib.h"
+#endif
+
 namespace tribase {
 
 class IVFScanBase {
@@ -61,8 +67,35 @@ class IVFScanBase {
 template <MetricType metric, OptLevel opt_level, EdgeDevice edge_device_enabled>
 class IVFScan : public IVFScanBase {
    public:
+
+#if defined(MANUAL_SIMD)
+    using dis_calculator_t = std::function<float(const float*, const float*, size_t)>;
+    dis_calculator_t dis_calculator;
     IVFScan(size_t d, size_t k)
-        : IVFScanBase(d, k) {}
+        : IVFScanBase(d, k) {
+        if constexpr (metric == MetricType::METRIC_IP) {
+            dis_calculator = calculatedInnerProduct;
+        } else if constexpr (metric == MetricType::METRIC_L2) {
+            dis_calculator = calculatedEuclideanDistance;
+        } else {
+            static_assert(false, "Unsupported metric type");
+        }
+    }
+#else
+    hnswlib::DISTFUNC<float> dis_calculator;
+    IVFScan(size_t d, size_t k)
+        : IVFScanBase(d, k) {
+        if constexpr (metric == MetricType::METRIC_IP) {
+            auto s = hnswlib::InnerProductSpace(d);
+            dis_calculator = s.get_dist_func();
+        } else if constexpr (metric == MetricType::METRIC_L2) {
+            auto s = hnswlib::L2Space(d);
+            dis_calculator = s.get_dist_func();
+        } else {
+            static_assert(false, "Unsupported metric type");
+        }
+    }
+#endif
 
     void lite_scan_codes(size_t list_size,
                          const float* codes,
@@ -159,15 +192,15 @@ class IVFScan : public IVFScanBase {
         float point5_times_inv_sqrt_centroid2query;
         float sqrt_simi;
 
-        auto dis_calculator = [](const float* vec1, const float* vec2, size_t size) {
-            if constexpr (metric == MetricType::METRIC_IP) {
-                return calculatedInnerProduct(vec1, vec2, size);
-            } else if constexpr (metric == MetricType::METRIC_L2) {
-                return calculatedEuclideanDistance(vec1, vec2, size);
-            } else {
-                static_assert(false, "Unsupported metric type");
-            }
-        };
+        // auto dis_calculator = [](const float* vec1, const float* vec2, size_t size) {
+        //     if constexpr (metric == MetricType::METRIC_IP) {
+        //         return calculatedInnerProduct(vec1, vec2, size);
+        //     } else if constexpr (metric == MetricType::METRIC_L2) {
+        //         return calculatedEuclideanDistance(vec1, vec2, size);
+        //     } else {
+        //         static_assert(false, "Unsupported metric type");
+        //     }
+        // };
 
         auto dis_comparator = [](float dis, float simi) {
             if constexpr (metric == MetricType::METRIC_IP) {
@@ -197,18 +230,30 @@ class IVFScan : public IVFScanBase {
             sqrt_simi = sqrt(simi[0]);
         }
         for (size_t i = scan_begin; i < scan_end; i++) {
-            if (if_skip[i]) {
-                continue;
+            if constexpr ((opt_level & OptLevel::OPT_SUBNN_IP) || (opt_level & OptLevel::OPT_SUBNN_L2)) {
+                _mm_prefetch((char*)(if_skip + i + 1), _MM_HINT_T0);
+                if (if_skip[i]) {
+                    continue;
+                }
             }
+            _mm_prefetch((char*)(codes + (i + 1) * d), _MM_HINT_T0);
             const float* candicate = codes + i * d;
-            const float candicate_norm = codes_norms[i];
             float dis;
             if constexpr (metric == MetricType::METRIC_L2) {
+#ifndef MANUAL_SIMD
+                dis = dis_calculator(query, candicate, &d);
+#else
                 dis = dis_calculator(query, candicate, d);
+#endif
                 // dis = calculatedEuclideanDistance(query, candicate, query_norm, d);
+                // const float candicate_norm = codes_norms[i];
                 // dis = calculatedEuclideanDistance(query, candicate, query_norm, candicate_norm, d);
             } else {
+#ifndef MANUAL_SIMD
+                dis = dis_calculator(query, candicate, &d);
+#else
                 dis = dis_calculator(query, candicate, d);
+#endif
             }
 
             if (dis_comparator(dis, simi[0])) {
@@ -245,7 +290,11 @@ class IVFScan : public IVFScanBase {
                     size_t skip_true_id = nearest_L2_id[skip_fake_id];
                     if (skip_true_id > 0 && dis > tmp_plus * tmp_plus) {  // already sqrt nearest_L2_dis
 #ifdef CORRECTNESS_CHECK
+#ifndef MANUAL_SIMD
+                        float true_dis = dis_calculator(query, codes + skip_true_id * d, &d);
+#else
                         float true_dis = dis_calculator(query, codes + skip_true_id * d, d);
+#endif
 #pragma omp critical
                         if (true_dis < simi[0]) {
                             std::cerr << "Error: " << true_dis << " " << dis << " " << nearest_L2_id[skip_fake_id] << std::endl;
@@ -290,14 +339,23 @@ class IVFScan : public IVFScanBase {
                             size_t skip_true_id = nearest_IP_id[skip_fake_id];
                             if (skip_true_id > 0 && nearest_IP_dis[skip_fake_id] > cut_degree_cos_minus) {
 #ifdef CORRECTNESS_CHECK
+#ifndef MANUAL_SIMD
+                                float true_dis = dis_calculator(query, codes + skip_true_id * d, &d);
+#else
                                 float true_dis = dis_calculator(query, codes + skip_true_id * d, d);
+#endif
 #pragma omp critical
                                 if (true_dis < simi[0]) {
                                     std::cerr << std::format("Error: query->p2: {} <= {}, nearestesIP: {}, cut: {}", sqrt(true_dis), sqrt(simi[0]), nearest_IP_dis[skip_fake_id], cut_degree_cos_minus) << std::endl;
                                     std::cerr << std::format("query->p1: {}, max_r: {}, query->c: {}", sqrt(dis), sqrt(max_radius), sqrt(centroid2query)) << std::endl;
                                     std::cerr << std::format("c->p1: {}, c->p2: {}", sqrt(candicate2centroid[i]), sqrt(candicate2centroid[skip_true_id])) << std::endl;
+#ifndef MANUAL_SIMD
+                                    assert(candicate2centroid[i] == dis_calculator(codes + i * d, centroid_code, &d));
+                                    assert(candicate2centroid[skip_true_id] == dis_calculator(codes + skip_true_id * d, centroid_code, &d));
+#else
                                     assert(candicate2centroid[i] == dis_calculator(codes + i * d, centroid_code, d));
                                     assert(candicate2centroid[skip_true_id] == dis_calculator(codes + skip_true_id * d, centroid_code, d));
+#endif
                                     std::cout << (metric == MetricType::METRIC_L2) << std::endl;
 
                                     output_codes(centroid_code, d);
@@ -329,7 +387,7 @@ class IVFScan : public IVFScanBase {
                             size_t skip_true_id = farest_IP_id[skip_fake_id];
                             if (skip_true_id > 0 && farest_IP_dis[skip_fake_id] < cut_degree_cos_plus) {
 #ifdef CORRECTNESS_CHECK
-                                float true_dis = dis_calculator(query, codes + skip_true_id * d, d);
+                                float true_dis = dis_calculator(query, codes + skip_true_id * d, &d);
 #pragma omp critical
                                 if (true_dis < simi[0]) {
                                     std::cerr << std::format("Error: query->p2: {} <= {}, farestesIP: {}, cut: {}", sqrt(true_dis), sqrt(simi[0]), farest_IP_dis[skip_fake_id], cut_degree_cos_plus) << std::endl;

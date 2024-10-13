@@ -34,6 +34,7 @@ class CsvWriter {
     bool echo_ = false;
 
    public:
+    CsvWriter() = default;
     CsvWriter(const std::string& filename, bool isAppend = true, bool echo = true)
         : filename_(filename), isAppend_(isAppend), echo_(echo) {
         if (isAppend && std::filesystem::exists(filename)) {
@@ -753,6 +754,9 @@ inline float calculate_r2(const idx_t* I, const float* D, const idx_t* GT, const
     float sum = 0;
     for (size_t i = 0; i < nq; i++) {
         for (size_t j = 0; j < k; j++) {
+            if (I[i * k + j] == -1) {
+                break;
+            }
             g_sum += GD[i * gt_k + j];
             sum += D[i * k + j];
         }

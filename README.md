@@ -159,7 +159,7 @@ Finally, you can use the following command to get a more comprehensive usage gui
 ```bash
 ./release/bin/query --help
 
-Usage: query [--help] [--version] [--benchmarks_path VAR] [--dataset VAR] [--input_format VAR] [--output_format VAR] [--k VAR] [--nprobes VAR...] [--opt_levels VAR...] [--train_only] [--cache] [--sub_nprobe_ratio VAR] [--metric VAR] [--run_faiss] [--loop VAR] [--nlist VAR] [--verbose] [--ratios VAR...] [--csv VAR] [--dataset-info]
+Usage: tribase [--help] [--version] [--benchmarks_path VAR] [--dataset VAR] [--input_format VAR] [--output_format VAR] [--k VAR] [--nprobes VAR...] [--opt_levels VAR...] [--train_only] [--cache] [--sub_nprobe_ratio VAR] [--metric VAR] [--run_faiss] [--loop VAR] [--nlist VAR] [--verbose] [--ratios VAR...] [--csv VAR] [--dataset_info] [--early_stop]
 
 Optional arguments:
   -h, --help          shows help message and exits 
@@ -181,7 +181,8 @@ Optional arguments:
   --verbose           verbose 
   --ratios            search ratio [nargs=0..100] [default: {1}]
   --csv               csv result file [nargs=0..1] [default: ""]
-  --dataset-info      only output dataset-info to csv file
+  --dataset_info      only output dataset-info to csv file 
+  --early_stop        early stop
 ```
 
 ## Usage in Your Own Project

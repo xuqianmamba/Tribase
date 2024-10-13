@@ -18,3 +18,4 @@ benchmarks/data_4d_mean
 analysis.txt
 *.log
 *workspace
+logs/

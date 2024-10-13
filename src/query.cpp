@@ -39,7 +39,8 @@ int main(int argc, char* argv[]) {
     program.add_argument("--verbose").default_value(false).implicit_value(true).help("verbose");
     program.add_argument("--ratios").default_value(std::vector<float>({1.0f})).nargs(0, 100).help("search ratio").scan<'f', float>();
     program.add_argument("--csv").help("csv result file").default_value(std::string(""));
-    program.add_argument("--dataset-info").help("only output dataset-info to csv file").default_value(false).implicit_value(true);
+    program.add_argument("--dataset_info").help("only output dataset-info to csv file").default_value(false).implicit_value(true);
+    program.add_argument("--early_stop").help("early stop").default_value(false).implicit_value(true);
 
     try {
         program.parse_args(argc, argv);
@@ -71,6 +72,11 @@ int main(int argc, char* argv[]) {
     size_t loop = program.get<size_t>("loop");
     size_t nlist = program.get<size_t>("nlist");
     bool verbose = program.get<bool>("verbose");
+    bool early_stop = program.get<bool>("early_stop");
+
+    if (early_stop && (ratios[0] != 1 || ratios.size() != 1)) {
+        throw std::invalid_argument("early_stop is only allowed when ratios is 1.0");
+    }
 
     if (str_lower_equal(metric_str, "l2")) {
         metric = MetricType::METRIC_L2;
@@ -92,7 +98,11 @@ int main(int argc, char* argv[]) {
     if (tmp_csv_path.length()) {
         log_path = tmp_csv_path;
     } else {
-        log_path = std::format("{}/{}/result/log.csv", benchmarks_path, dataset);
+        if(!run_faiss){
+            log_path = std::format("{}/{}/result/log.csv", benchmarks_path, dataset);
+        }else{
+            log_path = std::format("{}/{}/result/log_faiss.csv", benchmarks_path, dataset);
+        }
     }
 
     // if (run_faiss && train_only) {
@@ -103,7 +113,7 @@ int main(int argc, char* argv[]) {
     std::unique_ptr<float[]> base = nullptr;
     std::tie(nb, d) = loadXvecsInfo(base_path);
 
-    if (program.get<bool>("dataset-info")) {
+    if (program.get<bool>("dataset_info")) {
         auto [nq, _] = loadXvecsInfo(query_path);
         std::ofstream ofs;
         ofs.open(tmp_csv_path.data());
@@ -176,6 +186,10 @@ int main(int argc, char* argv[]) {
             if (it != nprobes.end()) {
                 faiss_time[std::distance(nprobes.begin(), it)] = time;
             }
+        }
+    } else{
+        if(verbose){
+            std::cout << std::format("Faiss time file {} does not exist", faiss_time_path) << std::endl;
         }
     }
 
@@ -265,6 +279,7 @@ int main(int argc, char* argv[]) {
         }
         std::unique_ptr<float[]> tmp_faiss_dis = std::make_unique<float[]>(k * nq);
         std::unique_ptr<idx_t[]> tmp_faiss_labels = std::make_unique<idx_t[]>(k * nq);
+        CsvWriter faiss_time_output_writer(log_path, {"dataset", "nlist", "nprobe", "time", "recall", "r2"}, true, false);
         for (size_t i = 0; i < nprobes.size(); i++) {
             index_faiss->nprobe = nprobes[i];
             if (loop > 1) {
@@ -280,6 +295,7 @@ int main(int argc, char* argv[]) {
             std::cout << std::format("Faiss nprobe: {} time: {} recall: {} r2: {}", nprobes[i], faiss_time[i], recall, r2) << std::endl;
             faiss_time_output << std::format("{} {} {} {}", nprobes[i], faiss_time[i], recall, r2) << std::endl;
             faiss_time_output.flush();
+            faiss_time_output_writer << dataset << nlist << nprobes[i] << faiss_time[i] << recall << r2 << std::endl;
         }
         return 0;
     }
@@ -317,6 +333,7 @@ int main(int argc, char* argv[]) {
         size_t nprobe = nprobes[i];
         double f_time = faiss_time[i];
         index.nprobe = nprobe;
+        bool early_stop_flag = false;
         for (const OptLevel& opt_level : opt_levels) {
             index.opt_level = opt_level;
             for (float ratio : ratios) {
@@ -336,6 +353,7 @@ int main(int argc, char* argv[]) {
                 float r2 = calculate_r2(labels.get(), distances.get(), ground_truth_I.get(), ground_truth_D.get(), nq, k, metric);
                 double search_time = stopwatch.elapsedSeconds() / loop;
                 stats.simi_ratio = ratio;
+                stats.nlist = nlist;
                 stats.nprobe = nprobe;
                 stats.query_time = search_time;
                 stats.faiss_query_time = f_time;
@@ -343,8 +361,14 @@ int main(int argc, char* argv[]) {
                 stats.recall = recall;
                 stats.r2 = r2;
                 stats.print();
-                stats.toCsv(log_path, true);
+                stats.toCsv(log_path, true, dataset);
+                if (recall == 1) {
+                    early_stop_flag = true;
+                }
             }
+        }
+        if (early_stop_flag) {
+            break;
         }
     }
 }
