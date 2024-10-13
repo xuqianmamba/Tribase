@@ -17,7 +17,7 @@ fi
 datasets=("deep100m")
 for dataset in ${datasets[@]}; do
 
-    ./release/bin/query --benchmarks_path ./benchmarks --dataset $test_dataset \
+    ./release/bin/query --benchmarks_path ./benchmarks --dataset $dataset \
         --nprobes $nprobes \
         --run_faiss \
         --loop $loop \
