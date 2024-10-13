@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # quick build
 cmake --build ./release -j
 
@@ -5,11 +7,13 @@ loop=3
 output_csv_file="./logs/recall-qps.csv"
 faiss_output_csv_file="./logs/recall-qps-faiss.csv"
 
+nprobes="1 3 5 7 10 30 50 70 100 200 300 500"
+
 # simple test
 # test_dataset="sift10k"
 
 # ./release/bin/query --benchmarks_path ./benchmarks --dataset $test_dataset \
-#     --nprobes 1 3 5 7 10 30 50 70 100 200 300 500 \
+#     --nprobes $nprobes \
 #     --run_faiss \
 #     --loop $loop \
 #     --csv $faiss_output_csv_file \
@@ -17,7 +21,7 @@ faiss_output_csv_file="./logs/recall-qps-faiss.csv"
 #     --verbose
 
 # ./release/bin/query --benchmarks_path ./benchmarks --dataset $test_dataset \
-#     --nprobes 1 3 5 7 10 30 50 70 100 200 300 500 \
+#     --nprobes $nprobes \
 #     --sub_nprobe_ratio 1 \
 #     --opt_levels OPT_TRIANGLE OPT_TRI_SUBNN_L2 OPT_TRI_SUBNN_IP OPT_ALL \
 #     --loop $loop \
@@ -35,8 +39,16 @@ fi
 
 datasets=("msong" "sift1m" "nuswide" "glove25" "fasion_mnist_784")
 for dataset in ${datasets[@]}; do
+    ./release/bin/query --benchmarks_path ./benchmarks --dataset $test_dataset \
+        --nprobes $nprobes \
+        --run_faiss \
+        --loop $loop \
+        --csv $faiss_output_csv_file \
+        --cache \
+        --verbose
+
     ./release/bin/query --benchmarks_path ./benchmarks --dataset $dataset \
-        --nprobes 1 3 5 7 10 30 50 70 100 200 300 500 0 \
+        --nprobes $nprobes \
         --sub_nprobe_ratio 1 \
         --opt_levels OPT_TRIANGLE OPT_TRI_SUBNN_L2 OPT_TRI_SUBNN_IP OPT_ALL \
         --loop $loop \

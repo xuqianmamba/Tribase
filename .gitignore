@@ -14,6 +14,7 @@ benchmarks/nuswide
 benchmarks/fasion_mnist_784
 benchmarks/sift1b
 benchmarks/deep1b
+benchmarks/deep100m
 benchmarks/data_4d_mean
 analysis.txt
 *.log
