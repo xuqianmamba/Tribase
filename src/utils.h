@@ -24,6 +24,108 @@
 
 namespace tribase {
 
+class CsvWriter {
+   private:
+    std::ofstream file_;
+    std::string filename_;
+    std::vector<std::string> headers_;
+    bool hasData_ = false;
+    bool isAppend_ = false;
+    bool echo_ = false;
+
+   public:
+    CsvWriter(const std::string& filename, bool isAppend = true, bool echo = true)
+        : filename_(filename), isAppend_(isAppend), echo_(echo) {
+        if (isAppend && std::filesystem::exists(filename)) {
+            file_.open(filename, std::ios::app);
+        } else {
+            file_.open(filename);
+        }
+        if (!file_.is_open()) {
+            throw std::runtime_error("Failed to open file: " + filename);
+        }
+    }
+    CsvWriter(const std::string& filename, const std::vector<std::string>& headers, bool isAppend = true, bool echo = true)
+        : filename_(filename), headers_(headers), isAppend_(isAppend), echo_(echo) {
+        if (isAppend && std::filesystem::exists(filename)) {
+            file_.open(filename, std::ios::app);
+            if (!file_.is_open()) {
+                throw std::runtime_error("Failed to open file: " + filename);
+            }
+        } else {
+            file_.open(filename);
+            if (!file_.is_open()) {
+                throw std::runtime_error("Failed to open file: " + filename);
+            }
+            for (size_t i = 0; i < headers.size(); ++i) {
+                file_ << headers[i];
+                if (i < headers.size() - 1) {
+                    file_ << ",";
+                }
+            }
+            file_ << std::endl;
+        }
+    }
+    CsvWriter(const CsvWriter&) = delete;
+    CsvWriter& operator=(const CsvWriter&) = delete;
+    ~CsvWriter() {
+        file_.close();
+    }
+    void setHeader(const std::vector<std::string>& headers) {
+        headers_ = headers;
+        for (size_t i = 0; i < headers.size(); ++i) {
+            file_ << headers[i];
+            if (i < headers.size() - 1) {
+                file_ << ",";
+            }
+        }
+        file_ << std::endl;
+    }
+    std::ofstream& getFile() {
+        return file_;
+    }
+    template <typename T>
+    CsvWriter& operator<<(const T& value) {
+        if (file_) {
+            if (hasData_) {
+                file_ << ",";
+                if (echo_) {
+                    std::cout << ",";
+                }
+            }else{
+                if(echo_){
+                    std::cout << filename_ << ":\t";
+                }
+            }
+            if constexpr (std::is_floating_point<T>::value) {
+                file_ << std::fixed << std::setprecision(std::numeric_limits<T>::digits10 + 1) << value;
+                if (echo_) {
+                    std::cout << std::fixed << std::setprecision(std::numeric_limits<T>::digits10 + 1) << value;
+                }
+            } else {
+                file_ << value;
+                if (echo_) {
+                    std::cout << value;
+                }
+            }
+            hasData_ = true;  // 标记数据已写入
+        }
+        return *this;
+    }
+    CsvWriter& operator<<(std::ostream& (*manip)(std::ostream&)) {
+        if (manip == static_cast<std::ostream& (*)(std::ostream&)>(std::endl)) {
+            if (file_ && hasData_) {
+                file_ << std::endl;
+                hasData_ = false;  // 重置标记
+                if (echo_) {
+                    std::cout << std::endl;
+                }
+            }
+        }
+        return *this;
+    }
+};
+
 inline std::pair<size_t, int> loadFvecsInfo(const std::string& filePath) {
     std::ifstream file(filePath, std::ios::binary);
     if (!file.is_open()) {
@@ -579,6 +681,7 @@ inline float calculate_recall(const idx_t* I, const float* D, const idx_t* GT, c
     if (k > gt_k) {
         throw std::invalid_argument("k should be less than or equal to gt_k.");
     }
+#pragma omp parallel for reduction(+ : true_correct, correct)
     for (size_t i = 0; i < nq; ++i) {
         std::unordered_set<idx_t> groundtruth(GT + i * gt_k, GT + i * gt_k + k);
         for (size_t j = 0; j < k; ++j) {
@@ -591,6 +694,7 @@ inline float calculate_recall(const idx_t* I, const float* D, const idx_t* GT, c
         }
     }
     if (metric == MetricType::METRIC_L2) {
+#pragma omp parallel for reduction(+ : correct)
         for (size_t i = 0; i < nq; ++i) {
             float topK = std::numeric_limits<float>::max();
             size_t ii = k - 1;
@@ -611,6 +715,7 @@ inline float calculate_recall(const idx_t* I, const float* D, const idx_t* GT, c
             }
         }
     } else {
+#pragma omp parallel for reduction(+ : correct)
         for (size_t i = 0; i < nq; ++i) {
             float topK = std::numeric_limits<float>::lowest();
             size_t ii = k - 1;

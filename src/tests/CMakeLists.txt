@@ -24,3 +24,6 @@ target_link_libraries(hnswlib_test ${GTEST_LIBRARIES} ${GTEST_MAIN_LIBRARIES} pt
 
 add_executable(dim_test dim_test.cpp)
 target_link_libraries(dim_test ${GTEST_LIBRARIES} ${GTEST_MAIN_LIBRARIES} pthread Tribase faiss)
+
+add_executable(csv_test csv_test.cpp)
+target_link_libraries(csv_test)

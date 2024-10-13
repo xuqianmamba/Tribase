@@ -414,7 +414,7 @@ void Index::add(size_t n, const float* codes) {
                         }
                     }
                 }
-                Index sub_index(d, this_sub_nlist_IP, this_sub_nprobe_IP, MetricType::METRIC_IP, OptLevel::OPT_NONE, 0, 0, 0, false); // TODO: this_sub_nlist_L2 or this_sub_nlist_IP
+                Index sub_index(d, this_sub_nlist_IP, this_sub_nprobe_IP, MetricType::METRIC_IP, OptLevel::OPT_NONE, 0, 0, 0, false);  // TODO: this_sub_nlist_L2 or this_sub_nlist_IP
                 Stopwatch watch;
                 sub_index.train(nb, norm_xb);
 #pragma omp atomic
@@ -606,6 +606,7 @@ Stats Index::search(size_t n, const float* queries, size_t k, float* distances, 
         return Stats();
     }
     if ((opt_level & added_opt_level) != opt_level) {
+        std::cerr << "opt_level: " << opt_level << " added_opt_level: " << added_opt_level << std::endl;
         throw std::runtime_error("opt_level is not subset of added_opt_level");
     }
     if (nprobe > nlist) {

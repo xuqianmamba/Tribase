@@ -17,7 +17,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 find_package(OpenMP REQUIRED)
 find_package(GTest REQUIRED)
 
-set(MKL_ROOT "/opt/intel/oneapi/mkl/2024.2")
+set(MKL_ROOT "/opt/intel/oneapi/mkl/2024.1") # TODO: change back to 2024.2 after test
 include_directories(${MKL_ROOT}/include)
 link_directories(${MKL_ROOT}/lib/intel64)
 
@@ -41,5 +41,6 @@ endif()
 
 include_directories(${CMAKE_SOURCE_DIR}/third_party)
 include_directories(${CMAKE_SOURCE_DIR}/third_party/faiss)
+include_directories(${CMAKE_SOURCE_DIR}/hnswlib)
 add_subdirectory(third_party/faiss)
 add_subdirectory(src)

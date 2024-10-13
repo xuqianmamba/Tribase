@@ -13,6 +13,8 @@ benchmarks/glove25
 benchmarks/nuswide
 benchmarks/fasion_mnist_784
 benchmarks/sift1b
+benchmarks/deep1b
+benchmarks/data_4d_mean
 analysis.txt
 *.log
 *workspace

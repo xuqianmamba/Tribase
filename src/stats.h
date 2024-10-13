@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "common.h"
+#include "utils.h"
 
 namespace tribase {
 class Stats {
@@ -91,31 +92,23 @@ class Stats {
                   << std::format("simi_update_rate: {:.2f}% check_L2: {} check_IP: {}\n", simi_update_rate, check_subnn_L2, check_subnn_IP)
                   << std::format("time_speedup: {:.2f}% pruning_speedup: {:.2f}% query_time: {:.2f}\n", time_speedup, pruning_speedup, query_time)
                   << std::format("recall: {} r2: {}\n", recall, r2);
+        std::cout << total_count << std::endl;
     }
 
     void toCsv(std::string_view filename, bool append) {
-        std::ofstream ofs;
-        if (!std::filesystem::exists(filename)) {
-            append = false;
-        }
-        if (append) {
-            ofs.open(filename.data(), std::ios::app);
-        } else {
-            ofs.open(filename.data());
-        }
-        if (!ofs.is_open()) {
-            std::cerr << "Failed to open file: " << filename << std::endl;
-            return;
-        }
-        if (!append) {
-            ofs << "nprobe,opt_level,simi_ratio,tri,tri_large,subnn_L2,subnn_IP,simi_update_rate,check_L2,check_IP,time_speedup,pruning_speedup,query_time,recall,r2\n";
-        }
+        CsvWriter writer(filename,
+                         {"nprobe", "opt_level", "simi_ratio",
+                          "tri", "tri_large", "subnn_L2", "subnn_IP", "simi_update_rate",
+                          "check_L2", "check_IP",
+                          "time_speedup", "pruning_speedup", "query_time",
+                          "recall", "r2"},
+                         append);
         summary();
-        ofs << std::format("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
-                           nprobe, static_cast<int>(opt_level), simi_ratio, skip_triangle_count, skip_triangle_large_count,
-                           skip_subnn_L2_count, skip_subnn_IP_count, simi_update_rate, check_subnn_L2,
-                           check_subnn_IP, time_speedup, pruning_speedup, query_time, recall, r2);
-        ofs.flush();
+        writer << nprobe << static_cast<int>(opt_level) << simi_ratio
+               << skip_triangle_count << skip_triangle_large_count << skip_subnn_L2_count << skip_subnn_IP_count << simi_update_rate
+               << check_subnn_L2 << check_subnn_IP
+               << time_speedup << pruning_speedup << query_time
+               << recall << r2 << std::endl;
     }
 };
 

@@ -68,6 +68,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
     bool allow_replace_deleted_ = false;  // flag to replace deleted elements (marked as deleted) during insertions
 
+    bool allow_trihnsw_ = false;
+
     std::mutex deleted_elements_lock;  // lock for deleted_elements
     std::unordered_set<tableint> deleted_elements;  // contains internal ids of deleted elements
 
@@ -93,11 +95,13 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         size_t M = 16,
         size_t ef_construction = 200,
         size_t random_seed = 100,
-        bool allow_replace_deleted = false)
+        bool allow_replace_deleted = false,
+        bool allow_trihnsw = false)
         : label_op_locks_(MAX_LABEL_OPERATION_LOCKS),
             link_list_locks_(max_elements),
             element_levels_(max_elements),
-            allow_replace_deleted_(allow_replace_deleted) {
+            allow_replace_deleted_(allow_replace_deleted),
+            allow_trihnsw_(allow_trihnsw) {
         max_elements_ = max_elements;
         num_deleted_ = 0;
         data_size_ = s->get_data_size();
@@ -125,7 +129,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         offsetLevel0_ = 0;
 
         data_level0_memory_ = (char *) malloc(max_elements_ * size_data_per_element_);
-        data_dist_level0_memory_ = (char *)malloc(max_elements_ * size_data_per_element_); // trihnsw
+        if(allow_trihnsw_){
+            data_dist_level0_memory_ = (char *)malloc(max_elements_ * size_data_per_element_); // trihnsw
+        }
         if (data_level0_memory_ == nullptr)
             throw std::runtime_error("Not enough memory");
 
@@ -153,8 +159,10 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     void clear() {
         free(data_level0_memory_);
         data_level0_memory_ = nullptr;
-        free(data_dist_level0_memory_); // trihnsw
-        data_dist_level0_memory_ = nullptr; // trihnsw
+        if(allow_trihnsw_){
+            free(data_dist_level0_memory_); // trihnsw
+            data_dist_level0_memory_ = nullptr; // trihnsw
+        }
         for (tableint i = 0; i < cur_element_count; i++) {
             if (element_levels_[i] > 0)
                 free(linkLists_[i]);
@@ -453,6 +461,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         size_t trief = 0,
         BaseFilterFunctor* isIdAllowed = nullptr,
         BaseSearchStopCondition<dist_t>* stop_condition = nullptr) const {
+        if(!allow_trihnsw_){
+            throw std::runtime_error("tri-hnsw is not built, please enable it in the constructor");
+        }
         if(trief == 0){
             trief = std::max(size_t(1), ef - 1);
         }
@@ -535,10 +546,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                 _mm_prefetch(data_dist_level0_memory_ + (*(data + j + 1)) * size_data_per_element_ + offsetData_,
                              _MM_HINT_T0);
 #endif
-                { // trihnsw
-                    // sqrt(candidate_dist) - sqrt(candidate_neighbor_dist) > sqrt(tri_lowerBound)
+                if(top_candidates.size() == ef){ // trihnsw
                     float tmp = candidate_dist + candidate_neighbor_dist - tri_lowerBound;
-                    if (tmp * tmp > 4 * candidate_dist * candidate_neighbor_dist) {
+                    if (tmp * tmp > 4 * candidate_dist * candidate_neighbor_dist && candidate_dist > candidate_neighbor_dist && tmp > 0) {
                         visited_array[candidate_id] = visited_array_tag;
                     }
                 }
@@ -582,6 +592,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                             tableint id = top_candidates.top().second;
                             top_candidates.pop();
                             if (!bare_bone_search && stop_condition) {
+                                assert(false);
                                 stop_condition->remove_point_from_result(getExternalLabel(id), getDataByInternalId(id), dist);
                                 flag_remove_extra = stop_condition->should_remove_extra();
                             } else {
@@ -659,6 +670,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     }
 
     linklistsizeint* get_linklist_dist0(tableint internal_id) const { // trihnsw
+        if(!allow_trihnsw_){
+            throw std::runtime_error("tri-hnsw is not built, please enable it in the constructor");
+        }
         return (linklistsizeint*)(data_dist_level0_memory_ + internal_id * size_data_per_element_ + offsetLevel0_);
     }
 
@@ -707,10 +721,12 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                 lock.lock();
             }
             linklistsizeint *ll_cur;
-            linklistsizeint* lld_cur;
+            linklistsizeint* lld_cur = nullptr;
             if (level == 0){
                 ll_cur = get_linklist0(cur_c);
-                lld_cur = get_linklist_dist0(cur_c); // trihnsw
+                if(allow_trihnsw_){
+                    lld_cur = get_linklist_dist0(cur_c); // trihnsw
+                }
             } else
                 ll_cur = get_linklist(cur_c, level);
 
@@ -718,7 +734,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                 throw std::runtime_error("The newly inserted element should have blank link list");
             }
             setListCount(ll_cur, selectedNeighbors.size());
-            if (level == 0){
+            if (level == 0 && allow_trihnsw_){
                 setListCount(lld_cur, selectedNeighbors.size()); // trihnsw
             }
             tableint *data = (tableint *) (ll_cur + 1);
@@ -730,7 +746,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                     throw std::runtime_error("Trying to make a link on a non-existent level");
 
                 data[idx] = selectedNeighbors[idx];
-                if (level == 0) {
+                if (level == 0 && allow_trihnsw_) {
                     data_dist[idx] = selectedNeighborsDist[idx];  // trihnsw: squared distance
                 }
             }
@@ -744,10 +760,12 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             }
 
             linklistsizeint *ll_other;
-            linklistsizeint *lld_other;
+            linklistsizeint *lld_other = nullptr;
             if (level == 0){
                 ll_other = get_linklist0(selectedNeighbors[idx]);
-                lld_other = get_linklist_dist0(selectedNeighbors[idx]); // trihnsw
+                if(allow_trihnsw_){
+                    lld_other = get_linklist_dist0(selectedNeighbors[idx]); // trihnsw
+                }
             } else
                 ll_other = get_linklist(selectedNeighbors[idx], level);
 
@@ -777,11 +795,11 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             if (!is_cur_c_present) {
                 if (sz_link_list_other < Mcurmax) {
                     data[sz_link_list_other] = cur_c;
-                    if (level == 0) {
+                    if (level == 0 && allow_trihnsw_) {
                         data_dist[sz_link_list_other] = cur_c_dist; // trihnsw: squared distance
                     }
                     setListCount(ll_other, sz_link_list_other + 1);
-                    if (level == 0) {
+                    if (level == 0 && allow_trihnsw_) {
                         setListCount(lld_other, sz_link_list_other + 1); // trihnsw
                     }
                 } else {
@@ -803,7 +821,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                     int indx = 0;
                     while (candidates.size() > 0) {
                         data[indx] = candidates.top().second;
-                        if (level == 0) {
+                        if (level == 0 && allow_trihnsw_) {
                             data_dist[indx] = candidates.top().first; // trihnsw: squared distance
                         }
                         candidates.pop();
@@ -811,7 +829,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                     }
 
                     setListCount(ll_other, indx);
-                    if (level == 0) {
+                    if (level == 0 && allow_trihnsw_) {
                         setListCount(lld_other, indx); // trihnsw
                     }
                     // Nearest K:
@@ -905,7 +923,12 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         writeBinaryPOD(output, mult_);
         writeBinaryPOD(output, ef_construction_);
 
+        writeBinaryPOD(output, allow_trihnsw_);
+
         output.write(data_level0_memory_, cur_element_count * size_data_per_element_);
+        if (allow_trihnsw_) {
+            output.write(data_dist_level0_memory_, cur_element_count * size_data_per_element_);  // trihnsw
+        }
 
         for (size_t i = 0; i < cur_element_count; i++) {
             unsigned int linkListSize = element_levels_[i] > 0 ? size_links_per_element_ * element_levels_[i] : 0;
@@ -948,6 +971,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         readBinaryPOD(input, M_);
         readBinaryPOD(input, mult_);
         readBinaryPOD(input, ef_construction_);
+        readBinaryPOD(input, allow_trihnsw_);
 
         data_size_ = s->get_data_size();
         fstdistfunc_ = s->get_dist_func();
@@ -982,6 +1006,13 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         if (data_level0_memory_ == nullptr)
             throw std::runtime_error("Not enough memory: loadIndex failed to allocate level0");
         input.read(data_level0_memory_, cur_element_count * size_data_per_element_);
+
+        if (allow_trihnsw_) {
+            data_dist_level0_memory_ = (char*)malloc(max_elements * size_data_per_element_);
+            if (data_dist_level0_memory_ == nullptr)
+                throw std::runtime_error("Not enough memory: loadIndex failed to allocate level0");
+            input.read(data_dist_level0_memory_, cur_element_count * size_data_per_element_);  // trihnsw
+        }
 
         size_links_per_element_ = maxM_ * sizeof(tableint) + sizeof(linklistsizeint);
 
@@ -1474,7 +1505,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     // tri_ef != 0 means that we are using tribase algorithm
     std::priority_queue<std::pair<dist_t, labeltype >>
     searchKnn(const void *query_data, size_t k, BaseFilterFunctor* isIdAllowed = nullptr, size_t tri_ef = 0) const {
-        std::priority_queue<std::pair<dist_t, labeltype >> result;
+        std::priority_queue<std::pair<dist_t, labeltype>> result;
         if (cur_element_count == 0) return result;
 
         tableint currObj = enterpoint_node_;
@@ -1509,7 +1540,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
         std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates;
         bool bare_bone_search = !num_deleted_ && !isIdAllowed;
-        if (!tri_ef) {
+        if (tri_ef == 0) {
             if (bare_bone_search) {
                 top_candidates = searchBaseLayerST<true>(
                     currObj, query_data, std::max(ef_, k), isIdAllowed);
