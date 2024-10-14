@@ -1,6 +1,6 @@
 #!/bin/bash
 
-target="release"
+target="debug"
 
 # quick build
 cmake --build ./$target -j
