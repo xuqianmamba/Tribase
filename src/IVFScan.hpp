@@ -74,9 +74,17 @@ class IVFScan : public IVFScanBase {
     IVFScan(size_t d, size_t k)
         : IVFScanBase(d, k) {
         if constexpr (metric == MetricType::METRIC_IP) {
-            dis_calculator = calculatedInnerProduct;
+            if constexpr (edge_device_enabled) {
+                dis_calculator = calculatedInnerProduct0;
+            } else {
+                dis_calculator = calculatedInnerProduct;
+            }
         } else if constexpr (metric == MetricType::METRIC_L2) {
-            dis_calculator = calculatedEuclideanDistance;
+            if constexpr (edge_device_enabled) {
+                dis_calculator = calculatedEuclideanDistance0;
+            } else {
+                dis_calculator = calculatedEuclideanDistance;
+            }
         } else {
             static_assert(false, "Unsupported metric type");
         }

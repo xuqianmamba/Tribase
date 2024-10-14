@@ -43,13 +43,16 @@ Index& Index::operator=(Index&& other) noexcept {
     return *this;
 }
 
-void Index::train(size_t n, const float* codes, bool faiss) {
+void Index::train(size_t n, const float* codes, bool faiss, bool lite) {
     // 这里假设Clustering类已经定义好，并且有一个合适的构造函数和train方法
     auto tic1 = std::chrono::high_resolution_clock::now();
     if (!faiss) {
         ClusteringParameters cp;
         cp.metric = this->metric;
         cp.niter = 20;                     // 或其他合适的值
+        if (lite) {
+            cp.niter = 2;
+        }
         cp.seed = 6666;                    // 或其他合适的值
         cp.max_points_per_centroid = 256;  // 或其他合适的值
 

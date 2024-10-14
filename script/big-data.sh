@@ -16,21 +16,20 @@ fi
 
 datasets=("deep100m")
 for dataset in ${datasets[@]}; do
+    # ./release/bin/query --benchmarks_path ./benchmarks --dataset $dataset \
+    #     --nprobes $nprobes \
+    #     --run_faiss \
+    #     --loop $loop \
+    #     --csv $faiss_output_csv_file \
+    #     --cache \
+    #     --verbose
 
     ./release/bin/query --benchmarks_path ./benchmarks --dataset $dataset \
         --nprobes $nprobes \
-        --run_faiss \
+        --sub_nprobe_ratio 1 \
+        --opt_levels OPT_TRIANGLE OPT_TRI_SUBNN_L2 OPT_TRI_SUBNN_IP OPT_ALL \
         --loop $loop \
-        --csv $faiss_output_csv_file \
-        --cache \
+        --early_stop \
+        --csv $output_csv_file \
         --verbose
-
-    # ./release/bin/query --benchmarks_path ./benchmarks --dataset $dataset \
-    #     --nprobes $nprobes \
-    #     --sub_nprobe_ratio 1 \
-    #     --opt_levels OPT_TRIANGLE OPT_TRI_SUBNN_L2 OPT_TRI_SUBNN_IP OPT_ALL \
-    #     --loop $loop \
-    #     --early_stop \
-    #     --csv $output_csv_file \
-    #     --verbose
 done
