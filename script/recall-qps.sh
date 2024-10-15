@@ -9,7 +9,7 @@ loop=3
 output_csv_file="./logs/$target-recall-qps.csv"
 faiss_output_csv_file="./logs/$target-recall-qps-faiss.csv"
 
-nprobes="1 3 5 7 10 30 50 70 100 200 300 500"
+nprobes="1 3 5 7 10 30 50 70 100 200 300 500 0"
 
 # simple test
 # test_dataset="sift1m"

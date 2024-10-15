@@ -129,6 +129,9 @@ int main(int argc, char* argv[]) {
     if (nlist == 0) {
         nlist = static_cast<size_t>(std::sqrt(nb));
     }
+    if (nprobes.back() == 0) {
+        nprobes.back() = nlist;
+    }
     size_t sub_nlist = std::sqrt(nb / nlist);
     size_t sub_nprobe = std::max(static_cast<size_t>(sub_nlist * sub_nprobe_ratio), 1ul);
     if (verbose) {
@@ -256,10 +259,6 @@ int main(int argc, char* argv[]) {
         if (verbose) {
             std::cout << std::format("Groundtruth file loaded") << std::endl;
         }
-    }
-
-    if (nprobes.back() == 0) {
-        nprobes.back() = nlist;
     }
 
     if (run_faiss) {

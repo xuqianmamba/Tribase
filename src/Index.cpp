@@ -210,6 +210,7 @@ void Index::add(size_t n, const float* codes) {
     size_t nt = std::min(static_cast<size_t>(omp_get_max_threads()), n);
     size_t batch_size = n / nt;
     size_t extra = n % nt;
+    auto nearest_search_start = std::chrono::high_resolution_clock::now();
 #pragma omp parallel for num_threads(nt)
     for (size_t i = 0; i < nt; i++) {
         size_t start, end;
@@ -224,11 +225,17 @@ void Index::add(size_t n, const float* codes) {
             single_thread_nearest_cluster_search(end - start, codes + start * d, candicate2centroid.get() + start, listidcandicates.get() + start);
         }
     }
+    auto nearest_search_end = std::chrono::high_resolution_clock::now();
 
-    size_t list_sizes[nlist];
-    std::fill_n(list_sizes, nlist, 0);
+    if(verbose){
+        std::cout << "nearest search elapsed: " << std::chrono::duration<double>(nearest_search_end - nearest_search_start).count() << "s" << std::endl;
+    }
 
-#pragma omp parallel for reduction(+ : list_sizes[ : nlist])
+    auto sort_and_add_start = std::chrono::high_resolution_clock::now();
+    std::unique_ptr<size_t[]> list_sizes = std::make_unique<size_t[]>(nlist);
+    std::fill_n(list_sizes.get(), nlist, 0);
+
+    // TODO: parallelize this part ?
     for (size_t i = 0; i < n; i++) {
         list_sizes[listidcandicates[i]]++;
     }
@@ -243,7 +250,7 @@ void Index::add(size_t n, const float* codes) {
         lists[i].reset(list_sizes[i], d, sub_k, added_opt_level);
     }
 
-    std::fill_n(list_sizes, nlist, 0);
+    std::fill_n(list_sizes.get(), nlist, 0);
 
     std::unique_ptr<size_t[]> add_order = std::make_unique<size_t[]>(n);
     std::iota(add_order.get(), add_order.get() + n, 0);
@@ -271,6 +278,11 @@ void Index::add(size_t n, const float* codes) {
                 list_sizes[list_id]++;
             }
         }
+    }
+    auto sort_and_add_end = std::chrono::high_resolution_clock::now();
+    auto sort_and_add_elapsed = std::chrono::duration<double>(sort_and_add_end - sort_and_add_start).count();
+    if (verbose) {
+        std::cout << "sort and add elapsed: " << sort_and_add_elapsed << "s" << std::endl;
     }
 
     if (metric == MetricType::METRIC_L2) {
@@ -570,27 +582,29 @@ void Index::single_thread_search(size_t n, const float* queries, size_t k, float
                 size_t list_size = list.get_list_size();
                 size_t scan_begin = 0;
                 size_t scan_end = list_size;
-                float min_cut_degree_cos;
-                float max_cut_degree_cos;
-                if (simi[0] < centroid2query) {  // 0 ~ c + s
-                    max_cut_degree_cos = 1;
-                    min_cut_degree_cos = simi[0] * centroid2query - s_simi * s_centroid2query;
-                    while (scan_begin < scan_end && candidate2centroid[scan_end - 1] < min_cut_degree_cos) {
-                        scan_end--;
+                if (opt_level & OptLevel::OPT_TRIANGLE) {
+                    float min_cut_degree_cos;
+                    float max_cut_degree_cos;
+                    if (simi[0] < centroid2query) {  // 0 ~ c + s
+                        max_cut_degree_cos = 1;
+                        min_cut_degree_cos = simi[0] * centroid2query - s_simi * s_centroid2query;
+                        while (scan_begin < scan_end && candidate2centroid[scan_end - 1] < min_cut_degree_cos) {
+                            scan_end--;
+                        }
+                    } else {  // c - s ~ c + s
+                        max_cut_degree_cos = simi[0] * centroid2query + s_simi * s_centroid2query;
+                        min_cut_degree_cos = simi[0] * centroid2query - s_simi * s_centroid2query;
+                        while (scan_begin < scan_end && candidate2centroid[scan_begin] > max_cut_degree_cos) {
+                            scan_begin++;
+                        }
+                        while (scan_begin < scan_end && candidate2centroid[scan_end - 1] < min_cut_degree_cos) {
+                            scan_end--;
+                        }
                     }
-                } else {  // c - s ~ c + s
-                    max_cut_degree_cos = simi[0] * centroid2query + s_simi * s_centroid2query;
-                    min_cut_degree_cos = simi[0] * centroid2query - s_simi * s_centroid2query;
-                    while (scan_begin < scan_end && candidate2centroid[scan_begin] > max_cut_degree_cos) {
-                        scan_begin++;
+                    IF_STATS {
+                        stats->skip_triangle_count += scan_begin + list_size - scan_end;
+                        stats->total_count += list_size;
                     }
-                    while (scan_begin < scan_end && candidate2centroid[scan_end - 1] < min_cut_degree_cos) {
-                        scan_end--;
-                    }
-                }
-                IF_STATS {
-                    stats->skip_triangle_count += scan_begin + list_size - scan_end;
-                    stats->total_count += list_size;
                 }
                 scaner->scan_codes(scan_begin, scan_end, list_size, list.get_candidate_codes(), list.get_candidate_id(), simi, idxi);
             }
