@@ -276,6 +276,14 @@ k = 100
 distances, labels = index.search(xq, k)
 ```
 
+## TriHNSW
+
+We also applied triangular pruning to the HNSW algorithm. It is important to note that this represents a completely different pruning logic and is theoretically lossy; however, in practical testing (with k=1), it can achieve lossless results. For more detailed conclusions and performance analysis, please refer to the paper. Below is the method for executing the TriHNSW tests.
+
+```bash
+./build/bin/hnswlib_test
+```
+
 ## License
 
 This project is licensed under the MIT License.
