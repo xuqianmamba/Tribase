@@ -1,4 +1,24 @@
-# reproduce guide
+# Reproduce Guide
+
+## Host environment requirements
+
+- `pipx` and `docker` installed
+- `docker` without `sudo`
+
+[How to install pipx and docker on Linux](https://chatgpt.com/share/68ab0118-df3c-8010-bd95-db97d55926f0)
+
+## One-click script
+
+```bash
+git clone https://github.com/panjd123/Tribase.git
+cd Tribase
+bash figures/one_click.sh
+# tmux is recommended
+tmux new -d -s tribase 'bash figures/one_click.sh'
+tmux attach -t tribase
+```
+
+## step-by-step guide
 
 ### Setup environment using Docker
 
@@ -21,7 +41,7 @@ docker run -d \
 ```bash
 pipx install gdown
 gdown https://drive.google.com/file/d/12wFLDNStJU02pEn7VcAs00LyS7uzcAbl/view?usp=sharing --fuzzy
-unzio -o benchmarks.zip
+unzip -o benchmarks.zip
 ```
 
 ### Build project
