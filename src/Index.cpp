@@ -81,7 +81,7 @@ void Index::train(size_t n, const float* codes, bool faiss, bool lite) {
     }
     auto tic2 = std::chrono::high_resolution_clock::now();
     if (verbose) {
-        std::cout << std::format("train elapsed: {:.2f}s\n", std::chrono::duration<double>(tic2 - tic1).count());
+        std::cout << std::format("train elapsed: {}s\n", std::chrono::duration<double>(tic2 - tic1).count());
     }
 }
 
@@ -198,7 +198,7 @@ void Index::add(size_t n, const float* codes) {
     if (n == 0) {
         auto tic2 = std::chrono::high_resolution_clock::now();
         if (verbose) {
-            std::cout << std::format("add elapsed: {:.2f}s\n", std::chrono::duration<double>(tic2 - tic1).count());
+            std::cout << std::format("add elapsed: {}s\n", std::chrono::duration<double>(tic2 - tic1).count());
         }
         return;
     }
@@ -370,7 +370,7 @@ void Index::add(size_t n, const float* codes) {
             if (opt_level & OptLevel::OPT_SUBNN_L2) {
                 Index sub_index(d, this_sub_nlist_L2, this_sub_nprobe_L2, MetricType::METRIC_L2, OptLevel::OPT_NONE, 0, 0, 0, false);
                 Stopwatch watch;
-                sub_index.train(nb, xb);
+                sub_index.train(nb, xb, false, true);
 #pragma omp atomic
                 train_elapsed += watch.elapsedSeconds(true);
                 sub_index.add(nb, xb);
@@ -493,13 +493,13 @@ void Index::add(size_t n, const float* codes) {
 
     auto tic2 = std::chrono::high_resolution_clock::now();
     if (verbose) {
-        std::cout << std::format("add elapsed: {:.2f}s\n", std::chrono::duration<double>(tic2 - tic1).count());
+        std::cout << std::format("add elapsed: {}s\n", std::chrono::duration<double>(tic2 - tic1).count());
     }
 }
 
 void Index::single_thread_search(size_t n, const float* queries, size_t k, float* distances, idx_t* labels, float ratio, Stats* stats) {
-    std::unique_ptr<IVFScanBase> scaner_quantizer = get_scanner(metric, OPT_NONE, nprobe);
-    std::unique_ptr<IVFScanBase> scaner = get_scanner(metric, opt_level, k);
+    std::unique_ptr<IVFScanBase> scaner_quantizer = get_scanner(metric, OPT_NONE, nprobe, edge_device_enabled);
+    std::unique_ptr<IVFScanBase> scaner = get_scanner(metric, opt_level, k, edge_device_enabled);
 
     std::unique_ptr<float[]> centroid2queries = std::make_unique<float[]>(n * nprobe);
     std::unique_ptr<idx_t[]> listidqueries = std::make_unique<idx_t[]>(n * nprobe);
@@ -526,7 +526,7 @@ void Index::single_thread_search(size_t n, const float* queries, size_t k, float
                 float centroid2query = centroids2query[j];
                 size_t list_size = list.get_list_size();
 
-                std::unique_ptr<bool[]> if_skip = std::make_unique<bool[]>(list_size);
+                std::unique_ptr<bool[]> if_skip = std::make_unique<bool[]>(list_size + 1);
 
                 size_t skip_count = 0;
                 size_t skip_count_large = 0;
@@ -566,11 +566,18 @@ void Index::single_thread_search(size_t n, const float* queries, size_t k, float
                     stats->total_count += list_size;
                 }
 
+                // scaner->scan_codes(scan_begin, scan_end, list_size, list.get_candidate_codes(), list.get_candidate_id(), simi, idxi);
                 scaner->scan_codes(scan_begin, scan_end, list_size, list.get_candidate_codes(), list.get_candidate_id(), list.get_candidate_norms(), centroid2query, list.get_candidate2centroid(),
                                    list.get_sqrt_candidate2centroid(), sub_k, list.get_sub_nearest_IP_id(),
                                    list.get_sub_nearest_IP_dis(), list.get_sub_farest_IP_id(), list.get_sub_farest_IP_dis(),
                                    list.get_sub_nearest_L2_id(), list.get_sub_nearest_L2_dis(), if_skip.get(), simi, idxi,
-                                   stats, centroid_codes.get() + listids[j] * d);
+                                   stats, centroid_codes.get() + listids[j] * d, ratio, ratio);
+                // if(i == 0 && j < 10 && omp_get_thread_num() == 0) {
+                //     for(int t = 0; t < 10; t++){
+                //         printf("%f ", list.get_sub_nearest_L2_dis(t, 3));
+                //     }
+                //     printf("\n");
+                // }
             }
         } else {
             for (size_t j = 0; j < nprobe; j++) {

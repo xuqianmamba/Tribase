@@ -61,7 +61,9 @@ class IVFScanBase {
                             float* simi,
                             idx_t* idxi,
                             Stats* stats,
-                            const float* centroid_code) = 0;
+                            const float* centroid_code,
+                            float sqrt_ratio,
+                            float i_ratio) = 0;
 };
 
 template <MetricType metric, OptLevel opt_level, EdgeDevice edge_device_enabled>
@@ -191,7 +193,9 @@ class IVFScan : public IVFScanBase {
                     float* simi,
                     idx_t* idxi,
                     Stats* stats,
-                    [[maybe_unused]] const float* centroid_code = nullptr) override {
+                    [[maybe_unused]] const float* centroid_code = nullptr,
+                    float sqrt_ratio = 1,
+                    float i_ratio = 1) override {
         float max_radius;
         float diff_cos, diff_sin;
         float max_radius_plus_centroid2query;
@@ -241,6 +245,7 @@ class IVFScan : public IVFScanBase {
             if constexpr ((opt_level & OptLevel::OPT_SUBNN_IP) || (opt_level & OptLevel::OPT_SUBNN_L2)) {
                 _mm_prefetch((char*)(if_skip + i + 1), _MM_HINT_T0);
                 if (if_skip[i]) {
+                    // assert(false);
                     continue;
                 }
             }
@@ -264,7 +269,7 @@ class IVFScan : public IVFScanBase {
 #endif
             }
 
-            if (dis_comparator(dis, simi[0])) {
+            if (dis_comparator(dis, simi[0])) [[unlikely]] {
                 IF_STATS {
                     stats->simi_update_count++;
                 }
@@ -286,7 +291,7 @@ class IVFScan : public IVFScanBase {
                 }
             }
 
-            if (opt_level & OptLevel::OPT_SUBNN_L2) {
+            if constexpr (opt_level & OptLevel::OPT_SUBNN_L2) {
                 IF_STATS {
                     stats->check_subnn_L2_count += 1;
                 }
@@ -295,8 +300,8 @@ class IVFScan : public IVFScanBase {
                 skip_fake_id_begin += 1;
                 for (size_t skip_fake_id = skip_fake_id_begin; skip_fake_id < skip_fake_id_end; skip_fake_id++) {
                     float tmp_plus = nearest_L2_dis[skip_fake_id] + sqrt_simi;
-                    size_t skip_true_id = nearest_L2_id[skip_fake_id];
-                    if (skip_true_id > 0 && dis > tmp_plus * tmp_plus) {  // already sqrt nearest_L2_dis
+                    int64_t skip_true_id = nearest_L2_id[skip_fake_id];
+                    if (skip_true_id >= 0 && dis > sqrt_ratio * tmp_plus * tmp_plus) {  // already sqrt nearest_L2_dis
 #ifdef CORRECTNESS_CHECK
 #ifndef MANUAL_SIMD
                         float true_dis = dis_calculator(query, codes + skip_true_id * d, &d);
@@ -310,18 +315,21 @@ class IVFScan : public IVFScanBase {
                         }
 #endif
                         IF_STATS {
-                            if (!if_skip[skip_true_id] && i < skip_true_id) {
+                            if (!if_skip[skip_true_id] && i < skip_true_id) { //  
+                                // std::ofstream("logs/fuck.txt", std::ios::app) << skip_true_id << " " << skip_fake_id << " " << nearest_L2_dis[skip_fake_id] << " " << sqrt_simi << " " << dis << ", ";
                                 stats->skip_subnn_L2_count++;
                             }
                         }
                         if_skip[skip_true_id] = true;
                     } else {
+                        // std::ofstream("logs/fuck.txt", std::ios::app) << "["  << skip_true_id << " " << skip_fake_id << " " << nearest_L2_dis[skip_fake_id] << " " << sqrt_simi << " " << dis << " END]";
                         IF_STATS {
                             stats->check_subnn_L2_ele_count += skip_fake_id - skip_fake_id_begin;
                         }
                         break;
                     }
                 }
+                // std::ofstream("logs/fuck.txt", std::ios::app) << " " << skip_fake_id_end << std::endl;
             }
 
             if constexpr (opt_level & OptLevel::OPT_SUBNN_IP) {
@@ -344,8 +352,8 @@ class IVFScan : public IVFScanBase {
                         skip_fake_id_begin += 1;
                         for (size_t skip_fake_id = skip_fake_id_begin; skip_fake_id < skip_fake_id_end;
                              skip_fake_id++) {
-                            size_t skip_true_id = nearest_IP_id[skip_fake_id];
-                            if (skip_true_id > 0 && nearest_IP_dis[skip_fake_id] > cut_degree_cos_minus) {
+                            int64_t skip_true_id = nearest_IP_id[skip_fake_id];
+                            if (skip_true_id >= 0 && nearest_IP_dis[skip_fake_id] > i_ratio * cut_degree_cos_minus) {
 #ifdef CORRECTNESS_CHECK
 #ifndef MANUAL_SIMD
                                 float true_dis = dis_calculator(query, codes + skip_true_id * d, &d);

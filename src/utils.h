@@ -267,14 +267,14 @@ class Stopwatch {
    public:
     // Constructor initializes the start time
     Stopwatch()
-        : start(std::chrono::high_resolution_clock::now()) {}
+        : start(std::chrono::steady_clock::now()) {}
 
     // Resets the start time to the current time
-    inline void reset() { start = std::chrono::high_resolution_clock::now(); }
+    inline void reset() { start = std::chrono::steady_clock::now(); }
 
     // Returns the elapsed time in milliseconds since the stopwatch was started or last reset
     inline double elapsedMilliseconds(bool isReset = false) {
-        auto end = std::chrono::high_resolution_clock::now();
+        auto end = std::chrono::steady_clock::now();
         auto ret = std::chrono::duration<double, std::milli>(end - start).count();
         if (isReset) {
             reset();
@@ -283,7 +283,7 @@ class Stopwatch {
     }
 
     inline double elapsedSeconds(bool isReset = false) {
-        auto end = std::chrono::high_resolution_clock::now();
+        auto end = std::chrono::steady_clock::now();
         auto ret = std::chrono::duration<double>(end - start).count();
         if (isReset) {
             reset();
@@ -293,7 +293,7 @@ class Stopwatch {
 
    private:
     // The start time
-    std::chrono::time_point<std::chrono::high_resolution_clock> start;
+    std::chrono::time_point<std::chrono::steady_clock> start;
 };
 
 // V0
@@ -359,6 +359,7 @@ __attribute__((optimize("O0"))) inline float calculatedEuclideanDistance(const f
     return distance;
 }
 #else
+__attribute__((optimize("unroll-loops,associative-math,no-signed-zeros")))
 inline float calculatedEuclideanDistance(const float* vec1, const float* vec2, size_t size) {
     float distance = 0.0;
     for (size_t i = 0; i < size; ++i) {
@@ -554,6 +555,7 @@ __attribute__((optimize("O0"))) inline float calculatedInnerProduct(const float*
     return sum;
 }
 #else
+__attribute__((optimize("unroll-loops,associative-math,no-signed-zeros")))
 inline float calculatedInnerProduct(const float* vec1, const float* vec2, size_t size) {
     // return cblas_sdot(size, vec1, 1, vec2, 1);
     float sum = 0.0;

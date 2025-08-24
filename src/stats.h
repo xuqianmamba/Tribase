@@ -42,6 +42,8 @@ class Stats {
     double r2;
     float simi_ratio;
 
+    size_t n_query;
+
     // summary
    private:
     float pruning_triangle;
@@ -55,6 +57,7 @@ class Stats {
 
     float time_speedup;
     float pruning_speedup;
+    double qps;
 
    public:
     void reset() {
@@ -84,6 +87,7 @@ class Stats {
 
         time_speedup = query_time == 0 ? 0 : 100.0 * faiss_query_time / query_time;
         pruning_speedup = dis_calculate_count == 0 ? 0 : 100.0 * total_count / dis_calculate_count;
+        qps = static_cast<double>(n_query) / query_time;
     }
 
     void print() {
@@ -91,7 +95,7 @@ class Stats {
         std::cout << std::format("nprobe:{} opt_level: {} simi_ratio: {}\n", nprobe, static_cast<int>(opt_level), simi_ratio)
                   << std::format("tri: {}({:.2f}%) tri_large: {}({:.2f}%) subnn_L2: {}({:.2f}%) subnn_IP: {}({:.2f}%)\n", skip_triangle_count, pruning_triangle, skip_triangle_large_count, pruning_triangle_large, skip_subnn_L2_count, pruning_subnn_L2, skip_subnn_IP_count, pruning_subnn_IP)
                   << std::format("simi_update_rate: {:.2f}% check_L2: {} check_IP: {}\n", simi_update_rate, check_subnn_L2, check_subnn_IP)
-                  << std::format("time_speedup: {:.2f}% pruning_speedup: {:.2f}% faiss_query_time: {:.6f} query_time: {:.6f}\n", time_speedup, pruning_speedup, faiss_query_time, query_time)
+                  << std::format("time_speedup: {:.2f}% pruning_speedup: {:.2f}% faiss_query_time: {:.6f} query_time: {:.6f} qps: {:f}\n", time_speedup, pruning_speedup, faiss_query_time, query_time, qps)
                   << std::format("recall: {} r2: {}\n", recall, r2);
     }
 
@@ -100,14 +104,14 @@ class Stats {
                          {"dataset", "nlist", "nprobe", "opt_level", "simi_ratio",
                           "tri", "tri_large", "subnn_L2", "subnn_IP", "simi_update_rate",
                           "check_L2", "check_IP",
-                          "time_speedup", "pruning_speedup", "query_time",
+                          "time_speedup", "pruning_speedup", "query_time", "qps",
                           "recall", "r2"},
                          append, false);
         summary();
         writer << dataset << nlist << nprobe << static_cast<int>(opt_level) << simi_ratio
                << skip_triangle_count << skip_triangle_large_count << skip_subnn_L2_count << skip_subnn_IP_count << simi_update_rate / 100
                << check_subnn_L2 << check_subnn_IP
-               << time_speedup / 100 << pruning_speedup / 100 << query_time
+               << time_speedup / 100 << pruning_speedup / 100 << query_time << qps
                << recall << r2 << std::endl;
     }
 };

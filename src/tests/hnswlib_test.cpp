@@ -7,7 +7,7 @@
 
 int main(int argc, char* argv[]) {
     argparse::ArgumentParser program("hnswlibtest");
-    program.add_argument("--benchmarks_path").help("benchmarks path").default_value(std::string("../benchmarks"));
+    program.add_argument("--benchmarks_path").help("benchmarks path").default_value(std::string("./benchmarks"));
     program.add_argument("--dataset").help("dataset name").default_value(std::string("sift10k"));
     program.add_argument("--k").help("knn").default_value(size_t(1)).action([](const std::string& value) -> size_t { return std::stoul(value); });
     program.add_argument("--tag").help("csv tag").default_value(std::string(""));
@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
     std::string index_path = std::format("{}/{}/index/hnsw_index_tri={}.index", benchmarks_path, dataset, !pure_hnsw);
 
     using namespace tribase;
-    CsvWriter csv_add_time(std::format("hnswlib_add_time_{}.csv", csv_tag), {"dataset", "pure_hnsw",
+    CsvWriter csv_add_time(std::format("logs/hnswlib_add_time_{}.csv", csv_tag), {"dataset", "pure_hnsw",
                                                                              "ef_construction",
                                                                              "time"});
 
@@ -64,6 +64,7 @@ int main(int argc, char* argv[]) {
 
     auto start_add = std::chrono::high_resolution_clock::now();
     alg_hnsw->addPoint(data, 0);
+    std::cout << "Adding..." << std::endl;
 #pragma omp parallel for
     for (int i = 1; i < nb; i++) {
         alg_hnsw->addPoint(data + i * dim, i);
@@ -74,12 +75,12 @@ int main(int argc, char* argv[]) {
 
     if (build_only) {
         alg_hnsw->saveIndex(index_path);
-        CsvWriter csv_index_size(std::format("hnswlib_index_size_{}.csv", csv_tag), {"dataset", "tri", "size(MB)"});
+        CsvWriter csv_index_size(std::format("logs/hnswlib_index_size_{}.csv", csv_tag), {"dataset", "tri", "size(MB)"});
         // std::cout << std::format("Index ({}) size: {} MB", index_path, std::filesystem::file_size(index_path) / 1024 / 1024) << std::endl;
         csv_index_size << dataset << !pure_hnsw << 1.0 * std::filesystem::file_size(index_path) / 1024 / 1024 << std::endl;
         return 0;
     }
-    CsvWriter csv_recall(std::format("hnswlib_recall_{}.csv", csv_tag), {"dataset", "k", "ef", "tri_ef", "time", "min_time", "recall"});
+    CsvWriter csv_recall(std::format("logs/hnswlib_recall_{}.csv", csv_tag), {"dataset", "k", "ef", "tri_ef", "time", "min_time", "recall"});
 
     Index index(d, nlist, 0, METRIC_L2, OPT_TRIANGLE, 15, 1, 1, false);
     index.train(nb, codes.get());
@@ -89,6 +90,8 @@ int main(int argc, char* argv[]) {
     Stats stats = index.search(nq, queries.get(), k, dis.get(), ids.get());
     auto end = std::chrono::high_resolution_clock::now();
     double time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / 1e6;
+    
+    // loadResults(groundtruth_path,ids.get(), dis.get(), nq, k);
 
     std::vector<size_t> efs;
     // = {100, 200, 300, 400, 500, 600, 700, 800, 900, 1000};
@@ -101,6 +104,7 @@ int main(int argc, char* argv[]) {
     // for (size_t ef = std::max((size_t)100, k); ef < 1000; ef += 100) {
     //     efs.push_back(ef);
     // }
+    std::cout << "Testing..." << std::endl;
     bool stop_flag = false;
     for (size_t ef : efs) {
         const int loop = 5;
