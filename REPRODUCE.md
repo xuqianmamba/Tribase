@@ -13,9 +13,9 @@
 git clone https://github.com/panjd123/Tribase.git
 cd Tribase
 bash figures/one_click.sh
-# tmux is recommended
-tmux new -d -s tribase 'bash figures/one_click.sh'
-tmux attach -t tribase
+# using tmux is recommended
+# tmux new -d -s tribase 'bash figures/one_click.sh'
+# tmux attach -t tribase
 ```
 
 ## step-by-step guide
@@ -28,7 +28,7 @@ cd Tribase
 # docker build -t panjd123/tribase-env:latest .
 docker pull panjd123/tribase-env:latest
 docker run -d \
-  --user 1000:1000 \
+  --user "$(id -u):$(id -g)" \
   --name tribase-dev \
   -v .:/app/tribase \
   --restart always \

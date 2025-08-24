@@ -1,7 +1,7 @@
 docker build -t panjd123/tribase-env:latest .
 
 docker run -d \
-  --user 1000:1000 \
+  --user "$(id -u):$(id -g)" \
   --name tribase-dev \
   -v .:/app/tribase \
   --restart always \
