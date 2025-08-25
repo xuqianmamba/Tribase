@@ -61,8 +61,6 @@ RUN python3 -m venv /app/venv && \
 
 RUN chmod 777 /app/venv
 
-RUN echo "source /app/venv/bin/activate" >>> ~/.bashrc
-
 RUN apt install -y ttf-mscorefonts-installer gdb passwd zip
 
 RUN echo "root:123456" | chpasswd
@@ -76,4 +74,4 @@ RUN mkdir /app/tribase
 
 WORKDIR /app/tribase
 
-CMD [ "/bin/bash" ]
+CMD [ "bash", "-c", "source /app/venv/bin/activate && exec bash" ]

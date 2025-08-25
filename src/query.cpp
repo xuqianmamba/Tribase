@@ -434,7 +434,7 @@ int main(int argc, char* argv[]) {
                 }
             }
         }
-        if (early_stop_flag) {
+        if (early_stop_flag && early_stop) {
             break;
         }
     }
