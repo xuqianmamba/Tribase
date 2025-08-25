@@ -1,10 +1,12 @@
 #!/bin/bash
 
-target="fix"
+target="standard"
 
-loop=3
+loop=1
 output_csv_file="./logs/$target-recall-qps-tribase.csv"
 faiss_output_csv_file="./logs/$target-recall-qps-faiss.csv"
+
+rm -f $output_csv_file $faiss_output_csv_file
 
 declare -A nprobes_dict
 
@@ -18,8 +20,7 @@ nprobes_dict["StarLightCurves"]="1 3 5 7 10 12 14 16 18 0" # ?
 
 export EDGE_DEVICE_ENABLED=1
 
-# datasets=("nuswide" "fasion_mnist_784" "sift1m")
-datasets=("nuswide")
+datasets=("nuswide" "fasion_mnist_784" "msong" "sift1m" "glove25" "HandOutlines" "StarLightCurves")
 for dataset in ${datasets[@]}; do
     nprobes="${nprobes_dict[$dataset]:-1 3 5 7 10 30 50 70 100 150 200 250 300 350 400 450 500 550 600 650 700}"
 

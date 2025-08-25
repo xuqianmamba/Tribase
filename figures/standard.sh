@@ -2,7 +2,7 @@
 
 target="standard"
 
-loop=3
+loop=1
 output_csv_file="./logs/$target-recall-qps-tribase.csv"
 faiss_output_csv_file="./logs/$target-recall-qps-faiss.csv"
 
