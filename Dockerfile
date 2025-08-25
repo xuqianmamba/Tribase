@@ -52,17 +52,18 @@ RUN cd /tmp && \
     cmake --install release --prefix /usr && \
     rm -rf /tmp/eigen-3.4.0
 
-WORKDIR /app
-
-# setup python3 environment
-RUN python3 -m venv /app/venv && \
-    source /app/venv/bin/activate && \
-    pip install numpy pandas matplotlib
-
-RUN chmod 777 /app/venv
+WORKDIR /opt
 
 RUN apt install -y ttf-mscorefonts-installer gdb passwd zip
 
+# setup python3 environment
+RUN python3 -m venv /opt/venv && \
+    source /opt/venv/bin/activate && \
+    pip install numpy pandas matplotlib
+
+ENV PATH="/opt/venv/bin:$PATH"
+
+RUN chmod 777 /opt/venv
 RUN echo "root:123456" | chpasswd
 
 # clean
@@ -70,8 +71,8 @@ RUN apt autoremove -y && \
     apt clean -y && \
     rm -rf /var/lib/apt/lists/*
 
-RUN mkdir /app/tribase
+RUN mkdir -p /app/tribase
 
 WORKDIR /app/tribase
 
-CMD [ "bash", "-c", "source /app/venv/bin/activate && exec bash" ]
+CMD [ "bash", "-c", "source /opt/venv/bin/activate && exec bash" ]
