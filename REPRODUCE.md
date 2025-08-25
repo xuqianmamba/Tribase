@@ -16,6 +16,7 @@ We do have a one-click script, but we still recommend completing it step by step
 git clone https://github.com/panjd123/Tribase.git
 cd Tribase
 bash figures/one_click.sh
+# The experiment may run for quite a long time (over 12 hours), so we recommend using tools like tmux.
 ```
 
 ### Setup environment using Docker / Download Dataset
@@ -74,6 +75,7 @@ run all experiments
 
 ```bash
 docker exec -it tribase-dev bash figures/run.sh
+# The experiment may run for quite a long time (over 12 hours), so we recommend using tools like tmux.
 ```
 
 The results and measurement indicators will be output in the `logs/` folder
@@ -90,6 +92,5 @@ The figures will be output in the `figures/` folder
 
 ```bash
 scp user@server:/path/to/Tribase/figures/*.png /local/path/
-
 # scp user@server:~/Tribase/figures/*.png .
 ```
