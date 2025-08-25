@@ -29,10 +29,15 @@ plt.rcParams.update({'font.size': 22})
 # query_time = [100, 99.95, 99.92, 99.8, 99.6, 99.3, 99.1, 98.5, 97.8, 96]
 build_speedup = add_elapseds / add_elapseds[-1]
 query_speedup = query_time / query_time[-1] * 100
+coeffs = np.polyfit(build_speedup, query_speedup, 2)
+a, b, c = coeffs
+build_smooth = np.linspace(build_speedup.min(), build_speedup.max(), 10)
+query_smooth = a * build_smooth**2 + b * build_smooth + c
 
 # 创建图形
 plt.figure(figsize=(7, 4.5))
-plt.plot(build_speedup, query_speedup, marker='o', linestyle='-', color='blue', markersize=8)
+plt.plot(build_smooth, query_smooth, marker='o', linestyle='-', color='blue', markersize=8)
+plt.plot(build_speedup, query_speedup, marker='o', linestyle='-.', color='red', markersize=8)
 
 # 设置图形的标题和坐标轴标签
 plt.title('Query Speed vs Build Speedup', fontsize=24, fontweight='normal', color='black')
