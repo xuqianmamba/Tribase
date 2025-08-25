@@ -1,4 +1,4 @@
-FROM ubuntu:24.04
+FROM ubuntu:24.04 AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -19,7 +19,11 @@ RUN apt update && \
     wget \
     libblas-dev \
     liblapack-dev \
-    unzip
+    unzip \
+    python3 \
+    python3-pip \
+    python3-venv \
+    swig
 
 # install gtest
 RUN mkdir -p /tmp && \
@@ -48,52 +52,27 @@ RUN cd /tmp && \
     cmake --install release --prefix /usr && \
     rm -rf /tmp/eigen-3.4.0
 
-COPY . /app/tribase
+WORKDIR /opt
 
-WORKDIR /app/tribase
+RUN apt install -y ttf-mscorefonts-installer gdb passwd zip
 
-# parallel build tribase
-RUN cmake -B release -DCMAKE_BUILD_TYPE=Release . && \
-    cmake -B build . && \
-    cmake --build release -j & \
-    cmake --build build -j & \
-    wait
+# setup python3 environment
+RUN python3 -m venv /opt/venv && \
+    source /opt/venv/bin/activate && \
+    pip install numpy pandas matplotlib
 
-# install python3
-RUN apt install -y \
-    python3 \
-    python3-pip \
-    python3-venv \
-    swig
+ENV PATH="/opt/venv/bin:$PATH"
 
-# setup python3 environment, install gdown
-RUN python3 -m venv venv && \
-    source venv/bin/activate && \
-    pip install gdown
-
-# download nuswide dataset
-RUN source venv/bin/activate && \
-    gdown https://drive.google.com/file/d/1d0w5XchVZvuRcV9sDZtbWC6TnB20tODM/view?usp=sharing --fuzzy --output benchmarks/ && \
-    unzip benchmarks/nuswide.zip -d benchmarks/nuswide && \
-    rm benchmarks/nuswide.zip
-
-# sift1m
-# RUN source venv/bin/activate && \
-#     gdown https://drive.google.com/file/d/1BcTuT4su77_Ue6Wi8EU340HSYoJeHwnD/view?usp=sharing --fuzzy --output benchmarks/ && \
-#     unzip benchmarks/sift1m.zip -d benchmarks/sift1m && \
-#     rm benchmarks/sift1m.zip
-
-RUN source venv/bin/activate && \
-    cd trifaiss && \
-    pip3 install -r requirements.txt && \
-    cmake -B build -DCMAKE_BUILD_TYPE=Release . && \
-    make -j -C build swigfaiss && \
-    cd build/faiss/python && \
-    python3 setup.py install
+RUN chmod 777 /opt/venv
+RUN echo "root:123456" | chpasswd
 
 # clean
 RUN apt autoremove -y && \
     apt clean -y && \
     rm -rf /var/lib/apt/lists/*
 
-CMD [ "/bin/bash" ]
+RUN mkdir -p /app/tribase
+
+WORKDIR /app/tribase
+
+CMD [ "bash", "-c", "source /opt/venv/bin/activate && exec bash" ]

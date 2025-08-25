@@ -1,0 +1,8 @@
+python figures/fig7.py
+python figures/fig8.py
+python figures/fig9.py
+python figures/fig10.py
+python figures/fig11.py
+python figures/fig12a.py
+python figures/fig12b.py
+python figures/fig13.py

@@ -20,4 +20,6 @@ target_link_libraries(main Tribase faiss)
 add_executable(query query.cpp)
 target_link_libraries(query Tribase faiss)
 
+add_executable(uniform_dataset_generate uniform_dataset_generate.cpp)
+
 add_subdirectory(tests)

@@ -1,3 +1,8 @@
+#include <faiss/IndexFlat.h>
+#include <faiss/IndexIVFFlat.h>
+#include <faiss/index_io.h>
+#include <omp.h>
+
 #include <argparse/argparse.hpp>
 #include <filesystem>
 #include <format>
@@ -8,38 +13,65 @@
 #include <string>
 #include <vector>
 
-#include <faiss/IndexFlat.h>
-#include <faiss/IndexIVFFlat.h>
-#include <faiss/index_io.h>
 #include "tribase.h"
 #include "utils.h"
 
 using namespace tribase;
 
 bool str_lower_equal(const std::string& a, const std::string& b) {
-    return std::equal(a.begin(), a.end(), b.begin(), b.end(), [](char a, char b) { return std::tolower(a) == std::tolower(b); });
+    return std::equal(a.begin(), a.end(), b.begin(), b.end(),
+                      [](char a, char b) { return std::tolower(a) == std::tolower(b); });
 }
 
 int main(int argc, char* argv[]) {
     argparse::ArgumentParser program("tribase");
-    program.add_argument("--benchmarks_path").help("benchmarks path").default_value(std::string("/home/xuqian/Triangle/benchmarks"));
-    program.add_argument("--dataset").help("dataset name").default_value(std::string("msong"));
+    program.add_argument("--benchmarks_path").help("benchmarks path").default_value(std::string("./benchmarks"));
+    program.add_argument("--dataset").help("dataset name").default_value(std::string("HandOutlines"));
     program.add_argument("--input_format").help("format of the dataset").default_value(std::string("fvecs"));
     program.add_argument("--output_format").help("format of the output").default_value(std::string("bin"));
-    program.add_argument("--k").help("number of nearest neighbors").default_value(100ul).action([](const std::string& value) -> size_t { return std::stoul(value); });
-    program.add_argument("--nprobes").default_value(std::vector<size_t>({0ul})).nargs(0, 100).help("number of clusters to search").scan<'u', size_t>();
-    program.add_argument("--opt_levels").default_value(std::vector<std::string>({"OPT_NONE", "OPT_TRIANGLE", "OPT_SUBNN_L2", "OPT_SUBNN_IP", "OPT_TRI_SUBNN_L2", "OPT_TRI_SUBNN_IP", "OPT_ALL"})).nargs(0, 10).help("optimization levels");
+    program.add_argument("--k")
+        .help("number of nearest neighbors")
+        .default_value(100ul)
+        .action([](const std::string& value) -> size_t { return std::stoul(value); });
+    program.add_argument("--subk")
+        .default_value(15ul)
+        .action([](const std::string& value) -> size_t { return std::stoul(value); });
+    program.add_argument("--nq")
+        .default_value(0ul)
+        .action([](const std::string& value) -> size_t { return std::stoul(value); });
+    program.add_argument("--nprobes")
+        .default_value(std::vector<size_t>({0ul}))
+        .nargs(0, 100)
+        .help("number of clusters to search")
+        .scan<'u', size_t>();
+    program.add_argument("--opt_levels")
+        .default_value(std::vector<std::string>({"OPT_NONE", "OPT_TRIANGLE", "OPT_SUBNN_L2", "OPT_SUBNN_IP",
+                                                 "OPT_TRI_SUBNN_L2", "OPT_TRI_SUBNN_IP", "OPT_ALL"}))
+        .nargs(0, 10)
+        .help("optimization levels");
     program.add_argument("--train_only").default_value(false).implicit_value(true).help("train only");
     program.add_argument("--cache").default_value(false).implicit_value(true).help("use cached index");
-    program.add_argument("--sub_nprobe_ratio").default_value(1.0f).help("ratio of the number of subNNs to the number of clusters").action([](const std::string& value) -> float { return std::stof(value); });
+    program.add_argument("--sub_nprobe_ratio")
+        .default_value(1.0f)
+        .help("ratio of the number of subNNs to the number of clusters")
+        .action([](const std::string& value) -> float { return std::stof(value); });
     program.add_argument("--metric").default_value("l2").help("metric type");
     program.add_argument("--run_faiss").default_value(false).implicit_value(true).help("run faiss");
-    program.add_argument("--loop").default_value(1ul).action([](const std::string& value) -> size_t { return std::stoul(value); });
-    program.add_argument("--nlist").default_value(0ul).action([](const std::string& value) -> size_t { return std::stoul(value); });
+    program.add_argument("--loop").default_value(1ul).action(
+        [](const std::string& value) -> size_t { return std::stoul(value); });
+    program.add_argument("--nlist").default_value(0ul).action(
+        [](const std::string& value) -> size_t { return std::stoul(value); });
     program.add_argument("--verbose").default_value(false).implicit_value(true).help("verbose");
-    program.add_argument("--ratios").default_value(std::vector<float>({1.0f})).nargs(0, 100).help("search ratio").scan<'f', float>();
+    program.add_argument("--ratios")
+        .default_value(std::vector<float>({1.0f}))
+        .nargs(0, 100)
+        .help("search ratio")
+        .scan<'f', float>();
     program.add_argument("--csv").help("csv result file").default_value(std::string(""));
-    program.add_argument("--dataset_info").help("only output dataset-info to csv file").default_value(false).implicit_value(true);
+    program.add_argument("--dataset_info")
+        .help("only output dataset-info to csv file")
+        .default_value(false)
+        .implicit_value(true);
     program.add_argument("--early_stop").help("early stop").default_value(false).implicit_value(true);
 
     try {
@@ -55,6 +87,8 @@ int main(int argc, char* argv[]) {
     std::vector<float> ratios = program.get<std::vector<float>>("ratios");
 
     size_t k = program.get<size_t>("k");
+    size_t subk = program.get<size_t>("subk");
+    size_t user_nq = program.get<size_t>("nq");
 
     std::vector<OptLevel> opt_levels;
     for (const auto& opt_level_str : opt_levels_str) {
@@ -92,15 +126,16 @@ int main(int argc, char* argv[]) {
 
     std::string base_path = std::format("{}/{}/origin/{}_base.{}", benchmarks_path, dataset, dataset, input_format);
     std::string query_path = std::format("{}/{}/origin/{}_query.{}", benchmarks_path, dataset, dataset, input_format);
-    std::string groundtruth_path = std::format("{}/{}/result/groundtruth_{}.{}", benchmarks_path, dataset, k, output_format);
+    std::string groundtruth_path =
+        std::format("{}/{}/result/groundtruth_{}.{}", benchmarks_path, dataset, k, output_format);
     std::string log_path;
     std::string tmp_csv_path = program.get<std::string>("csv");
     if (tmp_csv_path.length()) {
         log_path = tmp_csv_path;
     } else {
-        if(!run_faiss){
+        if (!run_faiss) {
             log_path = std::format("{}/{}/result/log.csv", benchmarks_path, dataset);
-        }else{
+        } else {
             log_path = std::format("{}/{}/result/log_faiss.csv", benchmarks_path, dataset);
         }
     }
@@ -155,13 +190,15 @@ int main(int argc, char* argv[]) {
         for (int i = 0; i < 8; i++) {
             // target is a subset of i
             if ((target & i) == target) {
-                std::string index_path = std::format("{}/{}/index/index_nlist_{}_opt_{}_subNprobeRatio_{}.index", benchmarks_path, dataset, nlist, i, sub_nprobe_ratio);
+                std::string index_path = std::format("{}/{}/index/index_nlist_{}_opt_{}_subNprobeRatio_{}.index",
+                                                     benchmarks_path, dataset, nlist, i, sub_nprobe_ratio);
                 if (std::filesystem::exists(index_path)) {
                     return index_path;
                 }
             }
         }
-        return std::format("{}/{}/index/index_nlist_{}_opt_{}_subNprobeRatio_{}.index", benchmarks_path, dataset, nlist, target, sub_nprobe_ratio);
+        return std::format("{}/{}/index/index_nlist_{}_opt_{}_subNprobeRatio_{}.index", benchmarks_path, dataset, nlist,
+                           target, sub_nprobe_ratio);
     };
 
     auto get_faiss_index_path = [&]() {
@@ -174,10 +211,18 @@ int main(int argc, char* argv[]) {
 
     auto [query, nq, _] = loadXvecs(query_path);
 
+    if(verbose){
+        if (user_nq > 0 && user_nq < nq) {
+            nq = user_nq;
+        }
+        std::cout << "nq: " << nq << std::endl;
+    }
+
     std::unique_ptr<idx_t[]> ground_truth_I = std::make_unique<idx_t[]>(k * nq);
     std::unique_ptr<float[]> ground_truth_D = std::make_unique<float[]>(k * nq);
 
-    std::string faiss_time_path = std::format("{}/{}/result/faiss_result_nlist_{}.txt", benchmarks_path, dataset, nlist);
+    std::string faiss_time_path =
+        std::format("{}/{}/result/faiss_result_nlist_{}.txt", benchmarks_path, dataset, nlist);
     std::vector<double> faiss_time(nprobes.size(), 0.0);
     std::ifstream faiss_time_input(faiss_time_path);
     if (faiss_time_input.is_open()) {
@@ -190,8 +235,8 @@ int main(int argc, char* argv[]) {
                 faiss_time[std::distance(nprobes.begin(), it)] = time;
             }
         }
-    } else{
-        if(verbose){
+    } else {
+        if (verbose) {
             std::cout << std::format("Faiss time file {} does not exist", faiss_time_path) << std::endl;
         }
     }
@@ -246,7 +291,8 @@ int main(int argc, char* argv[]) {
         faiss_groundtruth_time = stopwatch.elapsedSeconds();
         writeResultsToFile(ground_truth_I.get(), ground_truth_D.get(), nq, k, groundtruth_path);
         if (verbose) {
-            std::cout << std::format("Groundtruth file {} created using {} s", groundtruth_path, faiss_groundtruth_time) << std::endl;
+            std::cout << std::format("Groundtruth file {} created using {} s", groundtruth_path, faiss_groundtruth_time)
+                      << std::endl;
         }
         if (nprobes.back() == nlist) {
             faiss_time.back() = faiss_groundtruth_time;
@@ -278,7 +324,8 @@ int main(int argc, char* argv[]) {
         }
         std::unique_ptr<float[]> tmp_faiss_dis = std::make_unique<float[]>(k * nq);
         std::unique_ptr<idx_t[]> tmp_faiss_labels = std::make_unique<idx_t[]>(k * nq);
-        CsvWriter faiss_time_output_writer(log_path, {"dataset", "nlist", "nprobe", "time", "recall", "r2"}, true, false);
+        CsvWriter faiss_time_output_writer(log_path, {"dataset", "nlist", "nprobe", "time", "qps", "recall", "r2"},
+                                           true, false);
         for (size_t i = 0; i < nprobes.size(); i++) {
             index_faiss->nprobe = nprobes[i];
             if (loop > 1) {
@@ -288,13 +335,19 @@ int main(int argc, char* argv[]) {
             for (size_t j = 0; j < loop; j++) {
                 index_faiss->search(nq, query.get(), k, tmp_faiss_dis.get(), tmp_faiss_labels.get());
             }
-            float recall = calculate_recall(tmp_faiss_labels.get(), tmp_faiss_dis.get(), ground_truth_I.get(), ground_truth_D.get(), nq, k, metric);
-            float r2 = calculate_r2(tmp_faiss_labels.get(), tmp_faiss_dis.get(), ground_truth_I.get(), ground_truth_D.get(), nq, k, metric);
+            float recall = calculate_recall(tmp_faiss_labels.get(), tmp_faiss_dis.get(), ground_truth_I.get(),
+                                            ground_truth_D.get(), nq, k, metric);
+            float r2 = calculate_r2(tmp_faiss_labels.get(), tmp_faiss_dis.get(), ground_truth_I.get(),
+                                    ground_truth_D.get(), nq, k, metric);
             faiss_time[i] = stopwatch.elapsedSeconds() / loop;
-            std::cout << std::format("Faiss nprobe: {} time: {} recall: {} r2: {}", nprobes[i], faiss_time[i], recall, r2) << std::endl;
+            double qps = static_cast<double>(nq) / faiss_time[i];
+            std::cout << std::format("Faiss nprobe: {} time: {} qps: {} recall: {} r2: {}", nprobes[i], faiss_time[i],
+                                     qps, recall, r2)
+                      << std::endl;
             faiss_time_output << std::format("{} {} {} {}", nprobes[i], faiss_time[i], recall, r2) << std::endl;
             faiss_time_output.flush();
-            faiss_time_output_writer << dataset << nlist << nprobes[i] << faiss_time[i] << recall << r2 << std::endl;
+            faiss_time_output_writer << dataset << nlist << nprobes[i] << faiss_time[i] << qps << recall << r2
+                                     << std::endl;
         }
         return 0;
     }
@@ -312,11 +365,17 @@ int main(int argc, char* argv[]) {
     } else {
         std::tie(base, nb, d) = loadXvecs(base_path);
         nlist = static_cast<size_t>(std::sqrt(nb));
-        index = Index(d, nlist, 0, metric, added_opt_levels, OPT_ALL, sub_nlist, sub_nprobe, verbose);
+        index = Index(d, nlist, 0, metric, added_opt_levels, subk, sub_nlist, sub_nprobe, verbose);
+
+        auto build_start = std::chrono::high_resolution_clock::now();
         index.train(nb, base.get());
         index.add(nb, base.get());
+        auto build_end = std::chrono::high_resolution_clock::now();
         if (verbose) {
             std::cout << std::format("Index trained") << std::endl;
+            std::cout << std::format("Index elapsed: {}s",
+                                     std::chrono::duration<double>(build_end - build_start).count())
+                      << std::endl;
         }
         index.save_index(index_path);
         if (verbose) {
@@ -328,6 +387,11 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
+    if (std::getenv("EDGE_DEVICE_ENABLED") != nullptr) {
+        index.edge_device_enabled = EdgeDevice::EDGEDEVIVE_ENABLED;
+        std::cout << "Edge device enabled" << std::endl;
+    }
+
     for (size_t i = 0; i < nprobes.size(); i++) {
         size_t nprobe = nprobes[i];
         double f_time = faiss_time[i];
@@ -336,8 +400,9 @@ int main(int argc, char* argv[]) {
         for (const OptLevel& opt_level : opt_levels) {
             index.opt_level = opt_level;
             for (float ratio : ratios) {
-                std::string output_path = std::format("{}/{}/result/result_nlist_{}_nprobe_{}_opt_{}_k_{}_ratio_{}.{}",
-                                                      benchmarks_path, dataset, nlist, nprobe, static_cast<int>(opt_level), k, ratio, output_format);
+                std::string output_path =
+                    std::format("{}/{}/result/result_nlist_{}_nprobe_{}_opt_{}_k_{}_ratio_{}.{}", benchmarks_path,
+                                dataset, nlist, nprobe, static_cast<int>(opt_level), k, ratio, output_format);
                 std::unique_ptr<float[]> distances = std::make_unique<float[]>(nq * k);
                 std::unique_ptr<idx_t[]> labels = std::make_unique<idx_t[]>(nq * k);
                 if (loop > 1) {
@@ -348,9 +413,12 @@ int main(int argc, char* argv[]) {
                 for (size_t j = 0; j < loop; j++) {
                     stats = index.search(nq, query.get(), k, distances.get(), labels.get(), ratio);
                 }
-                float recall = calculate_recall(labels.get(), distances.get(), ground_truth_I.get(), ground_truth_D.get(), nq, k, metric);
-                float r2 = calculate_r2(labels.get(), distances.get(), ground_truth_I.get(), ground_truth_D.get(), nq, k, metric);
+                float recall = calculate_recall(labels.get(), distances.get(), ground_truth_I.get(),
+                                                ground_truth_D.get(), nq, k, metric);
+                float r2 = calculate_r2(labels.get(), distances.get(), ground_truth_I.get(), ground_truth_D.get(), nq,
+                                        k, metric);
                 double search_time = stopwatch.elapsedSeconds() / loop;
+                stats.n_query = nq;
                 stats.simi_ratio = ratio;
                 stats.nlist = nlist;
                 stats.nprobe = nprobe;
@@ -366,7 +434,7 @@ int main(int argc, char* argv[]) {
                 }
             }
         }
-        if (early_stop_flag) {
+        if (early_stop_flag && early_stop) {
             break;
         }
     }
