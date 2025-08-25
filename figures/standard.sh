@@ -23,7 +23,7 @@ datasets=("nuswide" "fasion_mnist_784" "msong" "sift1m" "glove25" "HandOutlines"
 for dataset in ${datasets[@]}; do
     nprobes="${nprobes_dict[$dataset]:-1 3 5 7 10 30 50 70 100 150 200 250 300 350 400 450 500 550 600 650 700}"
 
-    ./debug/bin/query --benchmarks_path ./benchmarks --dataset $dataset \
+    ./standard/bin/query --benchmarks_path ./benchmarks --dataset $dataset \
         --nprobes $nprobes \
         --sub_nprobe_ratio 1 \
         --opt_levels OPT_NONE OPT_TRIANGLE OPT_SUBNN_L2 OPT_TRI_SUBNN_L2 OPT_SUBNN_IP OPT_TRI_SUBNN_IP OPT_ALL \
