@@ -3,16 +3,21 @@
 target="build_ratio"
 
 loop=10
+iloop=10
 dataset=StarLightCurves
 subk=1000
 force=0
 
-PARSED_ARGS=$(getopt -o l:d:s:k:f: --long loop:,dataset:,subk:,force: -n "$0" -- "$@")
+PARSED_ARGS=$(getopt -o l:d:s:k:f:i: --long loop:,iloop:,dataset:,subk:,force: -n "$0" -- "$@")
 eval set -- "$PARSED_ARGS"
 while true; do
     case "$1" in
         -l|--loop)
             loop="$2"
+            shift 2 # 移过选项名和它的值
+            ;;
+        -i|--iloop)
+            iloop="$2"
             shift 2 # 移过选项名和它的值
             ;;
         -d|--dataset)
@@ -25,7 +30,7 @@ while true; do
             ;;
         -f|--force)
             force=1
-            shift 1 # 移过选项名
+            shift 2 # 移过选项名
             ;;
         --) # '--' 是 getopt 添加的标记, 表示选项处理结束
             shift
@@ -64,7 +69,7 @@ for ((i=1; i<=$loop; i++)); do
             --nprobes 0 \
             --sub_nprobe_ratio $sub_nprobe_ratio \
             --opt_levels OPT_SUBNN_L2 \
-            --loop 1 \
+            --loop $iloop \
             --csv $output_csv_file \
             --subk $subk \
             --verbose | tee -a $output_log_file
