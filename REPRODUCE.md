@@ -2,31 +2,41 @@
 
 ## Host environment requirements
 
-- `pipx` and `docker` installed
-- `docker` without `sudo`
+- `pipx` installed (if you have `gdown` already, you can skip this step)
+- `docker` installed and `docker` without `sudo`
 
 [How to install pipx and docker on Linux](https://chatgpt.com/share/68ab0118-df3c-8010-bd95-db97d55926f0)
 
-## One-click script
+## step-by-step guide
+
+We do have a one-click script, but we still recommend completing it step by step. If you need a one-click script, refer to the following instructions:
 
 ```bash
+# Please make sure your environment has been prepared as the first step (Host environment requirements)
 git clone https://github.com/panjd123/Tribase.git
 cd Tribase
 bash figures/one_click.sh
-# using tmux is recommended
-# tmux new -d -s tribase 'bash figures/one_click.sh'
-# tmux attach -t tribase
 ```
 
-## step-by-step guide
+### Setup environment using Docker / Download Dataset
 
-### Setup environment using Docker
+This step includes everything that needs to be downloaded. Please pay attention to the network conditions to prevent download errors caused by unstable network.
 
 ```bash
+# Please make sure your environment has been prepared as the first step (Host environment requirements)
 git clone https://github.com/panjd123/Tribase.git
 cd Tribase
 # docker build -t panjd123/tribase-env:latest .
 docker pull panjd123/tribase-env:latest
+
+pipx install gdown
+gdown https://drive.google.com/file/d/12wFLDNStJU02pEn7VcAs00LyS7uzcAbl/view?usp=sharing --fuzzy
+unzip -o benchmarks.zip
+```
+
+### Setup docker container
+
+```bash
 docker run -d \
   --user "$(id -u):$(id -g)" \
   --name tribase-dev \
@@ -34,14 +44,6 @@ docker run -d \
   --restart always \
   panjd123/tribase-env \
   tail -f /dev/null
-```
-
-### Download datasets
-
-```bash
-pipx install gdown
-gdown https://drive.google.com/file/d/12wFLDNStJU02pEn7VcAs00LyS7uzcAbl/view?usp=sharing --fuzzy
-unzip -o benchmarks.zip
 ```
 
 ### Build project
@@ -87,7 +89,7 @@ The figures will be output in the `figures/` folder
 ### Download
 
 ```bash
-scp user@server:/path/to/tribase/figures/*.png /local/path/
+scp user@server:/path/to/Tribase/figures/*.png /local/path/
 
-# scp user@server:~/tribase/figures/*.png .
+# scp user@server:~/Tribase/figures/*.png .
 ```
