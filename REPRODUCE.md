@@ -83,3 +83,11 @@ docker exec -it tribase-dev bash figures/draw.sh
 ```
 
 The figures will be output in the `figures/` folder
+
+### Download
+
+```bash
+scp user@server:/path/to/tribase/figures/*.png /local/path/
+
+# scp user@server:~/tribase/figures/*.png .
+```

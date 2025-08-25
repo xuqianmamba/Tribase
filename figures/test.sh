@@ -66,4 +66,4 @@ done
 
 ./debug/bin/query --benchmarks_path ./benchmarks --dataset StarLightCurves     --nprobes 0     --sub_nprobe_ratio 1     --opt_levels OPT_SUBNN_L2     --loop 1     --csv logs/test.csv     --verbose     --cache
 
-./debug/bin/query --benchmarks_path ./benchmarks --dataset StarLightCurves     --nprobes 0     --sub_nprobe_ratio 0.2     --opt_levels OPT_SUBNN_L2     --loop 1     --csv logs/test.csv     --verbose     --cache
+./debug/bin/query --benchmarks_path ./benchmarks --dataset fasion_mnist_784     --nprobes 0     --sub_nprobe_ratio 1     --opt_levels OPT_NONE OPT_TRIANGLE OPT_SUBNN_L2 OPT_TRI_SUBNN_L2 OPT_SUBNN_IP OPT_TRI_SUBNN_IP OPT_ALL     --loop 1     --csv logs/test.csv     --verbose     --cache

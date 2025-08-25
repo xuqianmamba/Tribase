@@ -52,15 +52,16 @@ RUN cd /tmp && \
     cmake --install release --prefix /usr && \
     rm -rf /tmp/eigen-3.4.0
 
-RUN mkdir -p /app/tribase && \
-    mkdir -p /app/tribase/benchmarks
+WORKDIR /app
 
-WORKDIR /app/tribase
+# setup python3 environment
+RUN python3 -m venv /app/venv && \
+    source /app/venv/bin/activate && \
+    pip install numpy pandas matplotlib
 
-# setup python3 environment, install gdown
-RUN python3 -m venv venv && \
-    source venv/bin/activate && \
-    pip install gdown numpy pandas matplotlib
+RUN chmod 777 /app/venv
+
+RUN echo "source /app/venv/bin/activate" >>> ~/.bashrc
 
 RUN apt install -y ttf-mscorefonts-installer gdb passwd zip
 
@@ -70,5 +71,9 @@ RUN echo "root:123456" | chpasswd
 RUN apt autoremove -y && \
     apt clean -y && \
     rm -rf /var/lib/apt/lists/*
+
+RUN mkdir /app/tribase
+
+WORKDIR /app/tribase
 
 CMD [ "/bin/bash" ]
