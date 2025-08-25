@@ -5,8 +5,9 @@ target="build_ratio"
 loop=10
 dataset=StarLightCurves
 subk=1000
+force=0
 
-PARSED_ARGS=$(getopt -o l:d:s:k: --long loop:,dataset:,subk: -n "$0" -- "$@")
+PARSED_ARGS=$(getopt -o l:d:s:k:f: --long loop:,dataset:,subk:,force: -n "$0" -- "$@")
 eval set -- "$PARSED_ARGS"
 while true; do
     case "$1" in
@@ -22,6 +23,10 @@ while true; do
             subk="$2"
             shift 2 # 移过选项名和它的值
             ;;
+        -f|--force)
+            force=1
+            shift 1 # 移过选项名
+            ;;
         --) # '--' 是 getopt 添加的标记, 表示选项处理结束
             shift
             break
@@ -36,6 +41,10 @@ done
 output_csv_file="./logs/$target-recall-qps-tribase.csv"
 output_log_file="./logs/$target-recall-qps-tribase.log"
 faiss_output_csv_file="./logs/$target-recall-qps-faiss.csv"
+
+if [ $force -eq 1 ]; then
+    rm -rf $output_csv_file $output_log_file
+fi
 
 declare -A nprobes_dict
 
