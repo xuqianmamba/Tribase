@@ -8,8 +8,8 @@ import re
 mpl.rcParams['pdf.fonttype'] = 42  # 设置为Type 1字体
 mpl.rcParams['ps.fonttype'] = 42   # 设置为Type 1字体
 
-df = pd.read_csv('logs/build_ratio-recall-qps-tribase.csv')
-with open("logs/build_ratio-recall-qps-tribase.log") as f:
+df = pd.read_csv('logs/build_ratio2-recall-qps-tribase.csv')
+with open("logs/build_ratio2-recall-qps-tribase.log") as f:
     text = f.read()
     add_elapseds = re.findall(r'^add elapsed: ([\d.]+)s', text, re.MULTILINE)
     add_elapseds = np.array([float(x) for x in add_elapseds])
@@ -74,4 +74,4 @@ plt.subplots_adjust(bottom=0.17,left=0.2)  # 整个图表向下移动
 
 plt.tight_layout()
 # 保存图形
-plt.savefig('figures/fig12b.png', dpi=300)
+plt.savefig('figures/fig12b2.png', dpi=300)

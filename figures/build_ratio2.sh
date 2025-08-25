@@ -1,10 +1,10 @@
 #!/bin/bash
 
-target="build_ratio"
+target="build_ratio2"
 
 loop=10
 iloop=10
-dataset=StarLightCurves
+dataset=fasion_mnist_784
 subk=1000
 force=0
 
