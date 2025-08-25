@@ -58,13 +58,13 @@ nprobes_dict["StarLightCurves"]="1 3 5 7 10 12 14 16 18 0" # ?
 
 sub_nprobe_ratios="1 0.9 0.8 0.7 0.6 0.5 0.4 0.3 0.2 0.1"
 
-for ((i=1; i<=10; i++)); do
+for ((i=1; i<=$loop; i++)); do
     for sub_nprobe_ratio in $sub_nprobe_ratios; do
         ./release/bin/query --benchmarks_path ./benchmarks --dataset $dataset \
             --nprobes 0 \
             --sub_nprobe_ratio $sub_nprobe_ratio \
             --opt_levels OPT_SUBNN_L2 \
-            --loop $loop \
+            --loop 1 \
             --csv $output_csv_file \
             --subk $subk \
             --verbose | tee -a $output_log_file
